@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Panel — KagaITSB</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div style="min-height:100vh;display:flex;flex-direction:column;">
+        <nav style="display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);">
+            <a href="/" style="font-weight:800;font-size:1.1rem;display:flex;align-items:center;gap:8px;">🤖 KagaITSB</a>
+            <a href="/login" class="btn btn-sm btn-secondary">🔐 Owner Login</a>
+        </nav>
+
+        <div style="max-width:600px;margin:2rem auto;padding:0 1.5rem;width:100%;" class="fade-in">
+            <div class="customer-header">
+                <div class="customer-avatar">👤</div>
+                <h1 style="font-size:1.5rem;font-weight:800;">Customer Panel</h1>
+                <p style="color:var(--text-secondary);margin-top:4px;">Masukkan nomor WhatsApp untuk melihat profil</p>
+            </div>
+
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-body">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Nomor WhatsApp</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" class="form-input" id="phoneInput" placeholder="628xxxxxxxxxx" style="flex:1;">
+                            <button class="btn btn-primary" onclick="loadProfile()">Cek</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="profileSection" style="display:none;">
+                <div class="card" style="margin-bottom:1.5rem;">
+                    <div class="card-header"><div class="card-title">📋 Profil</div></div>
+                    <div class="card-body">
+                        <div id="profileInfo"></div>
+                    </div>
+                </div>
+                <div class="card" style="margin-bottom:1.5rem;">
+                    <div class="card-header"><div class="card-title">💳 Riwayat Transaksi</div></div>
+                    <div class="card-body no-pad">
+                        <div class="table-wrapper">
+                            <table><thead><tr><th>Tipe</th><th>Jumlah</th><th>Keterangan</th><th>Waktu</th></tr></thead>
+                            <tbody id="txTable"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title">💎 Upgrade Premium</div></div>
+                    <div class="card-body">
+                        <p style="color:var(--text-secondary);margin-bottom:1rem;">Hubungi owner untuk upgrade premium atau top-up balance.</p>
+                        <a href="https://wa.me/6289616029864?text=Halo%20saya%20mau%20upgrade%20premium" class="btn btn-primary">💬 Hubungi Owner</a>
+                    </div>
+                </div>
+            </div>
+            <div id="notFound" style="display:none;text-align:center;padding:2rem;color:var(--text-muted);">
+                <div style="font-size:3rem;margin-bottom:1rem;">🔍</div>
+                <p>User tidak ditemukan. Pastikan nomor benar dan sudah pernah menggunakan bot.</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function loadProfile() {
+            const phone = document.getElementById('phoneInput').value.replace(/[^0-9]/g, '');
+            if (!phone) return;
+            document.getElementById('profileSection').style.display = 'none';
+            document.getElementById('notFound').style.display = 'none';
+            try {
+                const res = await fetch(`/api/users/profile/${phone}`);
+                if (!res.ok) { document.getElementById('notFound').style.display = 'block'; return; }
+                const data = await res.json();
+                const isPrem = data.role === 'premium' || data.role === 'owner';
+                document.getElementById('profileInfo').innerHTML = `
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Nama</span><div style="font-weight:600;">${data.name}</div></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Status</span><div><span class="badge ${isPrem ? 'badge-accent' : 'badge-yellow'}">${isPrem ? 'PREMIUM' : 'FREE'}</span></div></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Balance</span><div style="font-weight:700;font-family:'JetBrains Mono',monospace;">${Number(data.balance).toLocaleString('id')}</div></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Limit</span><div style="font-weight:700;font-family:'JetBrains Mono',monospace;">${Number(data.limit_count).toLocaleString('id')}</div></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Total Commands</span><div style="font-weight:700;">${data.total_commands}</div></div>
+                        <div><span style="color:var(--text-muted);font-size:0.8rem;">Joined</span><div>${data.created_at?.split('T')[0] || '-'}</div></div>
+                    </div>`;
+                const txs = data.transactions || [];
+                document.getElementById('txTable').innerHTML = txs.length ? txs.map(t => `<tr><td><span class="badge ${t.amount>0?'badge-green':'badge-red'}">${t.type}</span></td><td style="font-family:'JetBrains Mono',monospace;">${Number(t.amount).toLocaleString('id')}</td><td>${t.description||'-'}</td><td style="color:var(--text-muted);font-size:0.8rem;">${t.created_at?.split('T')[0]||'-'}</td></tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Belum ada transaksi</td></tr>';
+                document.getElementById('profileSection').style.display = 'block';
+            } catch { document.getElementById('notFound').style.display = 'block'; }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+const initSqlJs = require('sql.js');
+const path = require('path');
+const fs = require('fs');
+const config = require('./config');
+
+// Ensure storage directories
+const storageDir = path.dirname(config.paths.database);
+if (!fs.existsSync(storageDir)) fs.mkdirSync(storageDir, { recursive: true });
+if (!fs.existsSync(config.paths.temp)) fs.mkdirSync(config.paths.temp, { recursive: true });
+if (!fs.existsSync(config.paths.sessions)) fs.mkdirSync(config.paths.sessions, { recursive: true });
+
+let db = null;
+
+function saveDb() {
+    if (!db) return;
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(config.paths.database, buffer);
+}
+
+// Auto-save every 30 seconds
+setInterval(saveDb, 30000);
+
+async function initDatabase() {
+    const SQL = await initSqlJs();
+    
+    // Load existing database or create new one
+    if (fs.existsSync(config.paths.database)) {
+        const fileBuffer = fs.readFileSync(config.paths.database);
+        db = new SQL.Database(fileBuffer);
+    } else {
+        db = new SQL.Database();
+    }
+    
+    // Create tables
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        jid TEXT PRIMARY KEY, name TEXT DEFAULT 'Unknown', role TEXT DEFAULT 'free',
+        balance INTEGER DEFAULT 0, limit_count INTEGER DEFAULT ${config.limits.free},
+        total_commands INTEGER DEFAULT 0, premium_expire TEXT,
+        is_banned INTEGER DEFAULT 0, is_muted INTEGER DEFAULT 0, last_claim TEXT,
+        exp INTEGER DEFAULT 0, level INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+    
+    // Auto-migrate columns if they don't exist
+    try { db.run('ALTER TABLE users ADD COLUMN exp INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1'); } catch {}
+    db.run(`CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, jid TEXT, type TEXT, amount INTEGER,
+        description TEXT, created_at TEXT DEFAULT (datetime('now'))
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS custom_commands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, trigger_word TEXT UNIQUE, response TEXT,
+        is_locked INTEGER DEFAULT 0, created_by TEXT, created_at TEXT DEFAULT (datetime('now'))
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS message_store (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, content TEXT,
+        created_by TEXT, created_at TEXT DEFAULT (datetime('now'))
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS admins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL, role TEXT DEFAULT 'admin', created_at TEXT DEFAULT (datetime('now'))
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS command_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, jid TEXT, command TEXT, chat_jid TEXT,
+        is_group INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now'))
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS warnings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, jid TEXT, group_jid TEXT, reason TEXT DEFAULT '',
+        warned_by TEXT, created_at TEXT DEFAULT (datetime('now'))
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS afk_status (
+        jid TEXT PRIMARY KEY, reason TEXT DEFAULT '', timestamp TEXT DEFAULT (datetime('now'))
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
+    
+    // Per-Group Leveling System
+    db.run(`CREATE TABLE IF NOT EXISTS group_levels (
+        jid TEXT NOT NULL, group_jid TEXT NOT NULL,
+        exp INTEGER DEFAULT 0, level INTEGER DEFAULT 1,
+        last_chat TEXT,
+        PRIMARY KEY (jid, group_jid)
+    )`);
+    
+    saveDb();
+    console.log('✅ Database initialized');
+    return db;
+}
+
+// Helper: run query and return rows
+function all(sql, params = []) { try { return db.exec(sql, params)?.[0]?.values?.map(row => { const cols = db.exec(sql, params)?.[0]?.columns; const obj = {}; cols?.forEach((c,i) => obj[c] = row[i]); return obj; }) || []; } catch { return []; } }
+
+// Better helper using prepared statements
+function query(sql, params = []) {
+    try {
+        const stmt = db.prepare(sql);
+        stmt.bind(params);
+        const results = [];
+        const cols = stmt.getColumnNames();
+        while (stmt.step()) {
+            const row = stmt.get();
+            const obj = {};
+            cols.forEach((c, i) => obj[c] = row[i]);
+            results.push(obj);
+        }
+        stmt.free();
+        return results;
+    } catch { return []; }
+}
+
+function queryOne(sql, params = []) {
+    const results = query(sql, params);
+    return results[0] || null;
+}
+
+function run(sql, params = []) {
+    try { db.run(sql, params); saveDb(); } catch (e) { console.error('DB Error:', e.message); }
+}
+
+// ═══════════════════════════════════════
+//  USER FUNCTIONS
+// ═══════════════════════════════════════
+const Users = {
+    get(jid) { return queryOne('SELECT * FROM users WHERE jid = ?', [jid]); },
+    create(jid, name = 'Unknown') { run(`INSERT OR IGNORE INTO users (jid, name, limit_count) VALUES (?, ?, ?)`, [jid, name, config.limits.free]); return this.get(jid); },
+    getOrCreate(jid, name = 'Unknown') { let u = this.get(jid); if (!u) u = this.create(jid, name); return u; },
+    updateName(jid, name) { run('UPDATE users SET name = ?, updated_at = datetime("now") WHERE jid = ?', [name, jid]); },
+    addBalance(jid, amount) { run('UPDATE users SET balance = balance + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
+    setBalance(jid, amount) { run('UPDATE users SET balance = ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
+    addLimit(jid, amount) { run('UPDATE users SET limit_count = limit_count + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
+    deductLimit(jid) { run('UPDATE users SET limit_count = limit_count - 1, total_commands = total_commands + 1, updated_at = datetime("now") WHERE jid = ?', [jid]); },
+    addExp(jid, amount) {
+        run('UPDATE users SET exp = exp + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]);
+        const u = this.get(jid);
+        if (u) {
+            const nextLevelExp = u.level * 100;
+            if (u.exp >= nextLevelExp) {
+                run('UPDATE users SET level = level + 1, exp = 0, updated_at = datetime("now") WHERE jid = ?', [jid]);
+                return { leveledUp: true, newLevel: u.level + 1 };
+            }
+        }
+        return { leveledUp: false };
+    },
+    setPremium(jid, days) {
+        const expire = new Date(); expire.setDate(expire.getDate() + days);
+        run('UPDATE users SET role = ?, premium_expire = ?, limit_count = ?, updated_at = datetime("now") WHERE jid = ?', ['premium', expire.toISOString(), config.limits.premium, jid]);
+    },
+    removePremium(jid) { run(`UPDATE users SET role = 'free', premium_expire = NULL, limit_count = ${config.limits.free}, updated_at = datetime("now") WHERE jid = ?`, [jid]); },
+    ban(jid) { run('UPDATE users SET is_banned = 1 WHERE jid = ?', [jid]); },
+    unban(jid) { run('UPDATE users SET is_banned = 0 WHERE jid = ?', [jid]); },
+    mute(jid) { run('UPDATE users SET is_muted = 1 WHERE jid = ?', [jid]); },
+    unmute(jid) { run('UPDATE users SET is_muted = 0 WHERE jid = ?', [jid]); },
+    claim(jid) {
+        const today = new Date().toISOString().split('T')[0];
+        run('UPDATE users SET last_claim = ?, updated_at = datetime("now") WHERE jid = ?', [today, jid]);
+        this.addBalance(jid, config.dailyClaim.balance);
+        this.addLimit(jid, config.dailyClaim.limit);
+    },
+    canClaim(jid) { const u = this.get(jid); if (!u) return true; return u.last_claim !== new Date().toISOString().split('T')[0]; },
+    getAll() { return query('SELECT * FROM users ORDER BY total_commands DESC'); },
+    getPremium() { return query("SELECT * FROM users WHERE role = 'premium'"); },
+    getBanned() { return query('SELECT * FROM users WHERE is_banned = 1'); },
+    getLeaderboard() { return query('SELECT jid, name, balance, total_commands FROM users ORDER BY balance DESC LIMIT 10'); },
+    count() { return queryOne('SELECT COUNT(*) as total FROM users')?.total || 0; },
+    countPremium() { return queryOne("SELECT COUNT(*) as total FROM users WHERE role = 'premium'")?.total || 0; },
+    isPremium(jid) {
+        const u = this.get(jid); if (!u) return false;
+        if (u.role === 'owner') return true;
+        if (u.role !== 'premium') return false;
+        if (u.premium_expire && new Date(u.premium_expire) < new Date()) { this.removePremium(jid); return false; }
+        return true;
+    },
+    transfer(fromJid, toJid, amount) {
+        const from = this.get(fromJid); if (!from || from.balance < amount) return false;
+        this.addBalance(fromJid, -amount); this.addBalance(toJid, amount);
+        Transactions.create(fromJid, 'transfer_out', -amount, `Transfer ke ${toJid}`);
+        Transactions.create(toJid, 'transfer_in', amount, `Transfer dari ${fromJid}`);
+        return true;
+    }
+};
+
+// ═══════════════════════════════════════
+//  TRANSACTIONS
+// ═══════════════════════════════════════
+const Transactions = {
+    create(jid, type, amount, desc) { run('INSERT INTO transactions (jid, type, amount, description) VALUES (?, ?, ?, ?)', [jid, type, amount, desc]); },
+    getByUser(jid) { return query('SELECT * FROM transactions WHERE jid = ? ORDER BY created_at DESC LIMIT 20', [jid]); },
+    getAll() { return query('SELECT * FROM transactions ORDER BY created_at DESC LIMIT 100'); },
+    count() { return queryOne('SELECT COUNT(*) as total FROM transactions')?.total || 0; },
+};
+
+// ═══════════════════════════════════════
+//  CUSTOM COMMANDS
+// ═══════════════════════════════════════
+const CustomCommands = {
+    get(trigger) { return queryOne('SELECT * FROM custom_commands WHERE trigger_word = ?', [trigger]); },
+    create(trigger, response, createdBy) { run('INSERT OR REPLACE INTO custom_commands (trigger_word, response, created_by) VALUES (?, ?, ?)', [trigger, response, createdBy]); },
+    delete(trigger) { run('DELETE FROM custom_commands WHERE trigger_word = ?', [trigger]); },
+    getAll() { return query('SELECT * FROM custom_commands ORDER BY created_at DESC'); },
+};
+
+// ═══════════════════════════════════════
+//  MESSAGE STORE
+// ═══════════════════════════════════════
+const MessageStore = {
+    get(name) { return queryOne('SELECT * FROM message_store WHERE name = ?', [name]); },
+    create(name, content, createdBy) { run('INSERT OR REPLACE INTO message_store (name, content, created_by) VALUES (?, ?, ?)', [name, content, createdBy]); },
+    delete(name) { run('DELETE FROM message_store WHERE name = ?', [name]); },
+    getAll() { return query('SELECT name, created_by, created_at FROM message_store ORDER BY created_at DESC'); },
+};
+
+// ═══════════════════════════════════════
+//  COMMAND LOGS
+// ═══════════════════════════════════════
+const CommandLogs = {
+    create(jid, command, chatJid, isGroup) { run('INSERT INTO command_logs (jid, command, chat_jid, is_group) VALUES (?, ?, ?, ?)', [jid, command, chatJid, isGroup ? 1 : 0]); },
+    getRecent() { return query('SELECT * FROM command_logs ORDER BY created_at DESC LIMIT 50'); },
+    countToday() { return queryOne("SELECT COUNT(*) as total FROM command_logs WHERE DATE(created_at) = DATE('now')")?.total || 0; },
+    countAll() { return queryOne('SELECT COUNT(*) as total FROM command_logs')?.total || 0; },
+    popular() { return query('SELECT command, COUNT(*) as count FROM command_logs GROUP BY command ORDER BY count DESC LIMIT 10'); },
+};
+
+// ═══════════════════════════════════════
+//  WARNINGS
+// ═══════════════════════════════════════
+const Warnings = {
+    add(jid, groupJid, reason, warnedBy) { run('INSERT INTO warnings (jid, group_jid, reason, warned_by) VALUES (?, ?, ?, ?)', [jid, groupJid, reason, warnedBy]); },
+    get(jid, groupJid) { return query('SELECT * FROM warnings WHERE jid = ? AND group_jid = ?', [jid, groupJid]); },
+    count(jid, groupJid) { return queryOne('SELECT COUNT(*) as total FROM warnings WHERE jid = ? AND group_jid = ?', [jid, groupJid])?.total || 0; },
+    reset(jid, groupJid) { run('DELETE FROM warnings WHERE jid = ? AND group_jid = ?', [jid, groupJid]); },
+};
+
+// ═══════════════════════════════════════
+//  AFK
+// ═══════════════════════════════════════
+const AFK = {
+    set(jid, reason) { run('INSERT OR REPLACE INTO afk_status (jid, reason, timestamp) VALUES (?, ?, datetime("now"))', [jid, reason]); },
+    get(jid) { return queryOne('SELECT * FROM afk_status WHERE jid = ?', [jid]); },
+    remove(jid) { run('DELETE FROM afk_status WHERE jid = ?', [jid]); },
+};
+
+// ═══════════════════════════════════════
+//  ADMINS (Dashboard)
+// ═══════════════════════════════════════
+const Admins = {
+    get(username) { return queryOne('SELECT * FROM admins WHERE username = ?', [username]); },
+    create(username, hashedPassword, role = 'admin') { run('INSERT INTO admins (username, password, role) VALUES (?, ?, ?)', [username, hashedPassword, role]); },
+    getAll() { return query('SELECT id, username, role, created_at FROM admins'); },
+};
+
+// ═══════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════
+const Settings = {
+    get(key, defaultVal = null) { const r = queryOne('SELECT value FROM settings WHERE key = ?', [key]); return r ? r.value : defaultVal; },
+    set(key, value) { run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value)]); },
+};
+
+// ═══════════════════════════════════════
+//  GROUP LEVELING SYSTEM (Per-Group)
+// ═══════════════════════════════════════
+const LEVEL_TITLES = [
+    { min: 1,   title: '🌱 Newbie' },
+    { min: 5,   title: '🌿 Beginner' },
+    { min: 10,  title: '🍃 Apprentice' },
+    { min: 15,  title: '🌾 Trainee' },
+    { min: 20,  title: '⚡ Fighter' },
+    { min: 25,  title: '🔥 Warrior' },
+    { min: 30,  title: '⚔️ Knight' },
+    { min: 35,  title: '🛡️ Guardian' },
+    { min: 40,  title: '🏹 Ranger' },
+    { min: 45,  title: '🧙 Mage' },
+    { min: 50,  title: '💎 Elite' },
+    { min: 55,  title: '🌟 Master' },
+    { min: 60,  title: '👑 Grand Master' },
+    { min: 65,  title: '🔱 Champion' },
+    { min: 70,  title: '🐉 Dragon Slayer' },
+    { min: 75,  title: '⭐ Legendary' },
+    { min: 80,  title: '🌌 Mythical' },
+    { min: 85,  title: '🏆 Supreme' },
+    { min: 90,  title: '💫 Divine' },
+    { min: 95,  title: '🔮 Immortal' },
+    { min: 100, title: '👑✨ Transcendent' },
+];
+
+const SPAM_COOLDOWN_MS = 10 * 1000; // 10 detik cooldown
+const MAX_LEVEL = 100;
+
+const GroupLevels = {
+    getTitle(level) {
+        let title = LEVEL_TITLES[0].title;
+        for (const t of LEVEL_TITLES) {
+            if (level >= t.min) title = t.title;
+        }
+        return title;
+    },
+
+    getExpNeeded(level) {
+        // EXP needed to level up from current level
+        return level * 5;
+    },
+
+    getOrCreate(jid, groupJid) {
+        let row = queryOne('SELECT * FROM group_levels WHERE jid = ? AND group_jid = ?', [jid, groupJid]);
+        if (!row) {
+            run('INSERT OR IGNORE INTO group_levels (jid, group_jid, exp, level) VALUES (?, ?, 0, 1)', [jid, groupJid]);
+            row = queryOne('SELECT * FROM group_levels WHERE jid = ? AND group_jid = ?', [jid, groupJid]);
+        }
+        return row;
+    },
+
+    addExp(jid, groupJid) {
+        const data = this.getOrCreate(jid, groupJid);
+        if (!data) return { gained: false, leveledUp: false };
+
+        // Already max level
+        if (data.level >= MAX_LEVEL) return { gained: false, leveledUp: false, maxLevel: true };
+
+        // Anti-spam: check cooldown (10 detik)
+        const now = Date.now();
+        if (data.last_chat) {
+            const lastChat = new Date(data.last_chat).getTime();
+            if (now - lastChat < SPAM_COOLDOWN_MS) {
+                return { gained: false, leveledUp: false, cooldown: true };
+            }
+        }
+
+        // Add 1 EXP + update last_chat timestamp
+        const newExp = data.exp + 1;
+        const expNeeded = this.getExpNeeded(data.level);
+        const nowISO = new Date(now).toISOString();
+
+        if (newExp >= expNeeded) {
+            // Level up!
+            const newLevel = data.level + 1;
+            const leftoverExp = newExp - expNeeded;
+            run('UPDATE group_levels SET exp = ?, level = ?, last_chat = ? WHERE jid = ? AND group_jid = ?',
+                [leftoverExp, newLevel, nowISO, jid, groupJid]);
+            
+            const oldTitle = this.getTitle(data.level);
+            const newTitle = this.getTitle(newLevel);
+            const gotNewTitle = oldTitle !== newTitle;
+
+            return {
+                gained: true,
+                leveledUp: true,
+                newLevel,
+                newExp: leftoverExp,
+                gotNewTitle,
+                newTitle: gotNewTitle ? newTitle : null,
+            };
+        } else {
+            // Just add EXP
+            run('UPDATE group_levels SET exp = ?, last_chat = ? WHERE jid = ? AND group_jid = ?',
+                [newExp, nowISO, jid, groupJid]);
+            return { gained: true, leveledUp: false, newExp, currentLevel: data.level };
+        }
+    },
+
+    getLeaderboard(groupJid, limit = 10) {
+        return query(
+            `SELECT gl.jid, gl.exp, gl.level, u.name 
+             FROM group_levels gl 
+             LEFT JOIN users u ON gl.jid = u.jid 
+             WHERE gl.group_jid = ? 
+             ORDER BY gl.level DESC, gl.exp DESC 
+             LIMIT ?`,
+            [groupJid, limit]
+        );
+    },
+
+    getProfile(jid, groupJid) {
+        const data = this.getOrCreate(jid, groupJid);
+        if (!data) return null;
+        return {
+            ...data,
+            title: this.getTitle(data.level),
+            expNeeded: this.getExpNeeded(data.level),
+            isMaxLevel: data.level >= MAX_LEVEL,
+        };
+    },
+
+    getRank(jid, groupJid) {
+        const result = queryOne(
+            `SELECT COUNT(*) + 1 as rank FROM group_levels 
+             WHERE group_jid = ? AND (level > (SELECT level FROM group_levels WHERE jid = ? AND group_jid = ?) 
+             OR (level = (SELECT level FROM group_levels WHERE jid = ? AND group_jid = ?) 
+             AND exp > (SELECT exp FROM group_levels WHERE jid = ? AND group_jid = ?)))`,
+            [groupJid, jid, groupJid, jid, groupJid, jid, groupJid]
+        );
+        return result?.rank || 1;
+    }
+};
+
+function test() {
+    console.log('📊 Users:', Users.count());
+    console.log('📊 Premium:', Users.countPremium());
+    console.log('📊 Commands logged:', CommandLogs.countAll());
+}
+
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, test };
+

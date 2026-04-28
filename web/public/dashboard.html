@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — KagaITSB Bot</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+<div class="dash-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo"><span>🤖</span> KagaITSB</div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" onclick="showSection('overview',this)"><span class="icon">📊</span> Overview</button>
+            <button class="nav-item" onclick="showSection('users',this)"><span class="icon">👥</span> Users</button>
+            <button class="nav-item" onclick="showSection('premium',this)"><span class="icon">💎</span> Premium</button>
+            <button class="nav-item" onclick="showSection('logs',this)"><span class="icon">📋</span> Live Logs</button>
+            <button class="nav-item" onclick="showSection('groups',this)"><span class="icon">👥</span> Groups</button>
+            <button class="nav-item" onclick="showSection('send',this)"><span class="icon">💬</span> Send Message</button>
+            <button class="nav-item" onclick="showSection('settings',this)"><span class="icon">⚙️</span> Settings</button>
+        </nav>
+        <div class="sidebar-footer">
+            <div id="connStatus" class="conn-status offline"><div class="dot red"></div> Offline</div>
+            <div class="user-info">
+                <div class="user-avatar" id="userInitial">A</div>
+                <div><div class="user-name" id="userName">Admin</div><div class="user-role" id="userRole">Owner</div></div>
+            </div>
+            <button class="nav-item" onclick="logout()" style="margin-top:8px;color:var(--red);">
+                <span class="icon">🚪</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- OVERVIEW -->
+        <div id="sec-overview" class="section active fade-in">
+            <div class="page-header"><h1 class="page-title">📊 Overview</h1><p class="page-subtitle">Dashboard bot real-time</p></div>
+            <div class="stats-grid">
+                <div class="stat-card accent"><div class="stat-card-icon">👥</div><div class="stat-card-value" id="totalUsers">0</div><div class="stat-card-label">Total Users</div></div>
+                <div class="stat-card green"><div class="stat-card-icon">💎</div><div class="stat-card-value" id="premUsers">0</div><div class="stat-card-label">Premium Users</div></div>
+                <div class="stat-card yellow"><div class="stat-card-icon">⚡</div><div class="stat-card-value" id="cmdsToday">0</div><div class="stat-card-label">Commands Today</div></div>
+                <div class="stat-card cyan"><div class="stat-card-icon">📈</div><div class="stat-card-value" id="totalCmds">0</div><div class="stat-card-label">Total Commands</div></div>
+            </div>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header"><div class="card-title">🔥 Popular Commands</div></div>
+                    <div class="card-body no-pad"><div class="table-wrapper"><table><thead><tr><th>Command</th><th>Count</th></tr></thead><tbody id="popularCmds"></tbody></table></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><div class="card-title">🏆 Leaderboard</div></div>
+                    <div class="card-body no-pad"><div class="table-wrapper"><table><thead><tr><th>#</th><th>Name</th><th>Balance</th></tr></thead><tbody id="leaderboard"></tbody></table></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- USERS -->
+        <div id="sec-users" class="section">
+            <div class="page-header"><h1 class="page-title">👥 User Management</h1></div>
+            <div class="card">
+                <div class="card-header"><div class="card-title">All Users</div><div><input class="form-input" placeholder="Cari user..." id="userSearch" oninput="filterUsers()" style="width:200px;padding:6px 12px;font-size:0.85rem;"></div></div>
+                <div class="card-body no-pad"><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Number</th><th>Status</th><th>Balance</th><th>Limit</th><th>Commands</th><th>Actions</th></tr></thead><tbody id="userTable"></tbody></table></div></div>
+            </div>
+        </div>
+
+        <!-- PREMIUM -->
+        <div id="sec-premium" class="section">
+            <div class="page-header"><h1 class="page-title">💎 Premium Management</h1></div>
+            <div class="card" style="margin-bottom:1.5rem;">
+                <div class="card-header"><div class="card-title">Add Premium</div></div>
+                <div class="card-body">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <input class="form-input" id="premJid" placeholder="628xxxxxxxxxx" style="flex:1;min-width:200px;">
+                        <input class="form-input" id="premDays" placeholder="Hari (30)" type="number" value="30" style="width:100px;">
+                        <button class="btn btn-primary" onclick="addPremium()">Add Premium</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><div class="card-title">Premium Users</div></div>
+                <div class="card-body no-pad"><div class="table-wrapper"><table><thead><tr><th>Name</th><th>Number</th><th>Expire</th><th>Action</th></tr></thead><tbody id="premTable"></tbody></table></div></div>
+            </div>
+        </div>
+
+        <!-- LOGS -->
+        <div id="sec-logs" class="section">
+            <div class="page-header"><h1 class="page-title">📋 Live Logs</h1></div>
+            <div class="card"><div class="card-header"><div class="card-title">Real-time Command Logs</div><div class="badge badge-green" id="logCount">0</div></div><div class="card-body"><div class="live-log" id="liveLog"><p style="color:var(--text-muted);">Menunggu commands...</p></div></div></div>
+        </div>
+
+        <!-- GROUPS -->
+        <div id="sec-groups" class="section">
+            <div class="page-header"><h1 class="page-title">👥 Bot Groups</h1></div>
+            <div class="card">
+                <div class="card-header"><div class="card-title">Group List</div><button class="btn btn-sm btn-primary" onclick="loadGroups()">🔄 Refresh</button></div>
+                <div class="card-body no-pad"><div class="table-wrapper"><table><thead><tr><th>#</th><th>Group Name</th><th>Members</th></tr></thead><tbody id="groupTable"></tbody></table></div></div>
+            </div>
+        </div>
+
+        <!-- SEND MESSAGE -->
+        <div id="sec-send" class="section">
+            <div class="page-header"><h1 class="page-title">💬 Send Message</h1></div>
+            <div class="card">
+                <div class="card-body">
+                    <div class="form-group"><label class="form-label">Target JID</label><input class="form-input" id="sendJid" placeholder="628xxx@s.whatsapp.net atau groupid@g.us"></div>
+                    <div class="form-group"><label class="form-label">Pesan</label><textarea class="form-input" id="sendMsg" rows="4" placeholder="Tulis pesan..." style="resize:vertical;"></textarea></div>
+                    <button class="btn btn-primary" onclick="sendMessage()">📤 Kirim</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="sec-settings" class="section">
+            <div class="page-header"><h1 class="page-title">⚙️ Settings</h1></div>
+            <div class="card">
+                <div class="card-body" id="settingsForm"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- QR Code Modal -->
+<div id="qrModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-secondary);padding:2rem;border-radius:12px;text-align:center;border:1px solid var(--border-color);box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+        <h2 style="margin-bottom:1rem;color:var(--text-primary);">Scan QR Code</h2>
+        <p style="color:var(--text-muted);margin-bottom:1rem;">Buka WhatsApp > Perangkat Taut > Scan</p>
+        <div style="background:white;padding:1rem;border-radius:8px;display:inline-block;">
+            <img id="qrImage" src="" alt="WhatsApp QR Code" style="width:250px;height:250px;">
+        </div>
+        <div style="margin-top:1.5rem;">
+            <button class="btn btn-secondary" onclick="document.getElementById('qrModal').style.display='none'">Tutup</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) window.location.href = '/login';
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+document.getElementById('userName').textContent = user.username || 'Admin';
+document.getElementById('userRole').textContent = user.role || 'admin';
+document.getElementById('userInitial').textContent = (user.username || 'A')[0].toUpperCase();
+
+const API = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...opts.headers } }).then(r => r.json());
+let allUsers = [];
+
+// Socket.IO
+const socket = io();
+const logEntries = [];
+socket.on('connection', (data) => {
+    const el = document.getElementById('connStatus');
+    if (data.status === 'open') { 
+        el.className = 'conn-status online'; 
+        el.innerHTML = '<div class="dot green"></div> Online'; 
+        document.getElementById('qrModal').style.display = 'none'; // Hide QR modal on connect
+    }
+    else { 
+        el.className = 'conn-status offline'; 
+        el.innerHTML = '<div class="dot red"></div> ' + (data.status || 'Offline'); 
+    }
+});
+socket.on('qr', (url) => {
+    document.getElementById('qrImage').src = url;
+    document.getElementById('qrModal').style.display = 'flex';
+});
+socket.on('command', (data) => {
+    const time = new Date(data.timestamp).toLocaleTimeString('id', {hour:'2-digit',minute:'2-digit'});
+    logEntries.unshift(data);
+    const log = document.getElementById('liveLog');
+    const entry = document.createElement('div'); entry.className = 'log-entry';
+    entry.innerHTML = `<span class="log-time">${time}</span><span class="log-cmd">.${data.command}</span><span class="log-user">${data.user}</span>`;
+    if (log.firstChild?.tagName === 'P') log.innerHTML = '';
+    log.prepend(entry);
+    document.getElementById('logCount').textContent = logEntries.length;
+});
+
+function showSection(id, btn) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('sec-' + id).classList.add('active');
+    if (btn) btn.classList.add('active');
+    document.querySelector('.sidebar').classList.remove('open');
+    if (id === 'users') loadUsers();
+    if (id === 'premium') loadPremium();
+    if (id === 'groups') loadGroups();
+    if (id === 'settings') loadSettings();
+}
+
+function toast(msg, dur = 3000) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), dur);
+}
+
+function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }
+
+// Load stats
+async function loadStats() {
+    try {
+        const d = await API('/api/dashboard/stats');
+        document.getElementById('totalUsers').textContent = d.totalUsers || 0;
+        document.getElementById('premUsers').textContent = d.premiumUsers || 0;
+        document.getElementById('cmdsToday').textContent = d.commandsToday || 0;
+        document.getElementById('totalCmds').textContent = d.totalCommands || 0;
+        document.getElementById('popularCmds').innerHTML = (d.popularCommands || []).map(c => `<tr><td><span class="badge badge-accent">.${c.command}</span></td><td style="font-family:'JetBrains Mono',monospace;">${c.count}</td></tr>`).join('') || '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);">No data</td></tr>';
+        const lb = await API('/api/dashboard/leaderboard');
+        document.getElementById('leaderboard').innerHTML = (lb || []).map((u,i) => `<tr><td>${['🥇','🥈','🥉'][i]||i+1}</td><td>${u.name}</td><td style="font-family:'JetBrains Mono',monospace;">${Number(u.balance).toLocaleString('id')}</td></tr>`).join('');
+    } catch {}
+}
+
+async function loadUsers() {
+    try {
+        allUsers = await API('/api/users');
+        renderUsers(allUsers);
+    } catch {}
+}
+function renderUsers(users) {
+    document.getElementById('userTable').innerHTML = (users || []).map(u => {
+        const status = u.is_banned ? '<span class="badge badge-red">BANNED</span>' : u.role === 'premium' ? '<span class="badge badge-accent">PREMIUM</span>' : '<span class="badge badge-yellow">FREE</span>';
+        const num = u.jid.split('@')[0];
+        return `<tr><td>${u.name}</td><td style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;">${num}</td><td>${status}</td><td style="font-family:'JetBrains Mono',monospace;">${Number(u.balance).toLocaleString('id')}</td><td>${u.limit_count}</td><td>${u.total_commands}</td><td><button class="btn btn-sm btn-secondary" onclick="userAction('${u.jid}','addbal')">💰</button> <button class="btn btn-sm ${u.is_banned?'btn-success':'btn-danger'}" onclick="userAction('${u.jid}','${u.is_banned?'unban':'ban'}')">${u.is_banned?'✅':'🔨'}</button></td></tr>`;
+    }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">No users yet</td></tr>';
+}
+function filterUsers() {
+    const q = document.getElementById('userSearch').value.toLowerCase();
+    renderUsers(allUsers.filter(u => u.name.toLowerCase().includes(q) || u.jid.includes(q)));
+}
+async function userAction(jid, action) {
+    if (action === 'ban') { await API('/api/users/ban', { method: 'POST', body: JSON.stringify({ jid }) }); toast('User banned!'); loadUsers(); }
+    else if (action === 'unban') { await API('/api/users/unban', { method: 'POST', body: JSON.stringify({ jid }) }); toast('User unbanned!'); loadUsers(); }
+    else if (action === 'addbal') { const amt = prompt('Jumlah balance:'); if (amt) { await API('/api/users/addbalance', { method: 'POST', body: JSON.stringify({ jid, amount: parseInt(amt) }) }); toast(`+${amt} balance added!`); loadUsers(); } }
+}
+
+async function loadPremium() {
+    try {
+        const list = await API('/api/users/premium');
+        document.getElementById('premTable').innerHTML = (list || []).map(u => `<tr><td>${u.name}</td><td>${u.jid.split('@')[0]}</td><td>${u.premium_expire?.split('T')[0]||'-'}</td><td><button class="btn btn-sm btn-danger" onclick="delPrem('${u.jid}')">Remove</button></td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No premium users</td></tr>';
+    } catch {}
+}
+async function addPremium() {
+    const jid = document.getElementById('premJid').value.replace(/[^0-9]/g,'') + '@s.whatsapp.net';
+    const days = parseInt(document.getElementById('premDays').value) || 30;
+    await API('/api/users/addprem', { method: 'POST', body: JSON.stringify({ jid, days }) });
+    toast('Premium added!'); loadPremium();
+}
+async function delPrem(jid) { await API('/api/users/delprem', { method: 'POST', body: JSON.stringify({ jid }) }); toast('Premium removed!'); loadPremium(); }
+
+async function loadGroups() {
+    try {
+        const list = await API('/api/bot/groups');
+        document.getElementById('groupTable').innerHTML = (list || []).map((g,i) => `<tr><td>${i+1}</td><td>${g.name}</td><td>${g.members}</td></tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Bot belum join grup atau belum connected</td></tr>';
+    } catch {}
+}
+
+async function sendMessage() {
+    const jid = document.getElementById('sendJid').value;
+    const message = document.getElementById('sendMsg').value;
+    if (!jid || !message) return toast('JID dan pesan wajib diisi!');
+    try { await API('/api/bot/send', { method: 'POST', body: JSON.stringify({ jid, message }) }); toast('Pesan terkirim!'); document.getElementById('sendMsg').value = ''; }
+    catch { toast('Gagal kirim pesan!'); }
+}
+
+async function loadSettings() {
+    try {
+        const s = await API('/api/settings');
+        document.getElementById('settingsForm').innerHTML = `
+            <div class="form-group"><label class="form-label">Bot Name</label><input class="form-input" value="${s.botName||''}" id="setBotName"></div>
+            <div class="form-group"><label class="form-label">Prefix</label><input class="form-input" value="${s.prefix||'.'}" id="setPrefix"></div>
+            <div class="form-group"><label class="form-label">Mode</label><select class="form-input" id="setMode"><option value="public" ${s.mode==='public'?'selected':''}>Public</option><option value="self" ${s.mode==='self'?'selected':''}>Self</option><option value="group" ${s.mode==='group'?'selected':''}>Group Only</option></select></div>
+            <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>`;
+    } catch {}
+}
+async function saveSettings() {
+    const pairs = [['botName', document.getElementById('setBotName').value], ['prefix', document.getElementById('setPrefix').value], ['mode', document.getElementById('setMode').value]];
+    for (const [k, v] of pairs) { await API('/api/settings', { method: 'POST', body: JSON.stringify({ key: k, value: v }) }); }
+    toast('Settings saved!');
+}
+
+// Check connection status
+async function checkStatus() { try { const s = await API('/api/bot/status'); const el = document.getElementById('connStatus'); if (s.connected) { el.className='conn-status online'; el.innerHTML='<div class="dot green"></div> Online'; } else { el.className='conn-status offline'; el.innerHTML='<div class="dot red"></div> Offline'; } } catch {} }
+
+loadStats(); checkStatus(); setInterval(loadStats, 30000); setInterval(checkStatus, 15000);
+</script>
+</body>
+</html>
