@@ -46,7 +46,7 @@ async function processNightEnd(sock, game, groupJid) {
 
         try {
             await sock.sendMessage(game.pendingHunter, {
-                text: `🏹 *PEMBURU — BALAS DENDAM!*\n\nKamu telah terbunuh! Tapi sebagai Pemburu, kamu bisa membawa 1 orang bersamamu!\n\nPilih target:\n${ww.getAlivePlayerListText(game)}\n⚡ Ketik: *.wshoot @target*\n⏳ Waktu: 30 detik`
+                text: `🏹 *PEMBURU — BALAS DENDAM!*\n\nKamu telah terbunuh! Tapi sebagai Pemburu, kamu bisa membawa 1 orang bersamamu!\n\nPilih target:\n${ww.getAlivePlayerListText(game)}\n⚡ Ketik: *.wshoot <nomor>*\n📌 Contoh: *.wshoot 1*\n⏳ Waktu: 30 detik`
             });
         } catch (e) { /* ignore */ }
 
@@ -82,7 +82,7 @@ async function transitionToDay(sock, game, groupJid, nightResult = null) {
     msg += `👥 Pemain hidup: ${alive.length}\n`;
     msg += `${alive.map(([j, p]) => `  💚 ${p.name}`).join('\n')}\n\n`;
     msg += `💬 Saatnya diskusi! Cari tahu siapa Werewolf-nya!\n⏳ Waktu diskusi: 3 menit\n\n`;
-    msg += `_Setelah diskusi, ketik *.wvote @pemain* untuk voting eliminasi._`;
+    msg += `_Setelah diskusi, ketik *.wvote @pemain* atau *.wvote <nomor>* untuk voting eliminasi._`;
 
     await announce(sock, groupJid, msg, getAllMentions(game));
 
@@ -92,7 +92,7 @@ async function transitionToDay(sock, game, groupJid, nightResult = null) {
             ww.startVoting(game);
             let voteMsg = `🗳️ *WAKTU VOTING!*\n\nWaktu diskusi habis! Saatnya vote!\n\n`;
             voteMsg += `Pemain hidup:\n${ww.getAlivePlayerListText(game)}\n`;
-            voteMsg += `⚡ Ketik: *.wvote @pemain*\n⏳ Waktu: 60 detik`;
+            voteMsg += `⚡ Ketik: *.wvote @pemain* atau *.wvote <nomor>*\n⏳ Waktu: 60 detik`;
             await announce(sock, groupJid, voteMsg, getAllMentions(game));
 
             game.timers.vote = setTimeout(async () => {
@@ -123,7 +123,7 @@ async function processVoteEnd(sock, game, groupJid) {
         await announce(sock, groupJid, `🏹 *${game.players.get(game.pendingHunter).name}* adalah Pemburu! Dia bisa menembak 1 pemain!`);
         try {
             await sock.sendMessage(game.pendingHunter, {
-                text: `🏹 *PEMBURU — BALAS DENDAM!*\n\nPilih target:\n${ww.getAlivePlayerListText(game)}\n⚡ Ketik: *.wshoot @target*\n⏳ 30 detik`
+                text: `🏹 *PEMBURU — BALAS DENDAM!*\n\nPilih target:\n${ww.getAlivePlayerListText(game)}\n⚡ Ketik: *.wshoot <nomor>*\n📌 Contoh: *.wshoot 1*\n⏳ 30 detik`
             });
         } catch (e) { /* ignore */ }
 
@@ -189,14 +189,18 @@ async function announceWinner(sock, game, groupJid, winner) {
     ww.endGame(groupJid);
 }
 
-/** Helper: resolve a target JID from mentions or text */
-function resolveTarget(m, args, game) {
-    let targetJid = m.mentionedJid?.[0] || m.quoted?.sender;
-    if (!targetJid && args[0]) {
-        const num = args[0].replace(/[^0-9]/g, '');
-        if (num) targetJid = num + '@s.whatsapp.net';
+/** Helper: resolve a target JID from number index, phone number, mentions, or quoted */
+function resolveTarget(m, args, game, excludeSelf = false) {
+    // Priority 1: Number index or phone number (for DM use)
+    if (args[0]) {
+        const excludeJid = excludeSelf ? m.sender : null;
+        const resolved = ww.resolveTargetByNumber(game, args[0], excludeJid);
+        if (resolved) return resolved;
     }
-    return targetJid;
+
+    // Priority 2: Mentions (for group use / backwards compat)
+    let targetJid = m.mentionedJid?.[0] || m.quoted?.sender;
+    return targetJid || null;
 }
 
 module.exports = [
@@ -349,7 +353,7 @@ module.exports = [
             const { groupJid, game } = found;
 
             const targetJid = resolveTarget(m, args, game);
-            if (!targetJid) return m.reply('❌ Tag target!\nContoh: *.wkill @pemain*');
+            if (!targetJid) return m.reply('❌ Pilih nomor target!\nContoh: *.wkill 1*');
 
             const result = ww.werewolfAction(groupJid, m.sender, targetJid);
             if (!result.success) return m.reply(`❌ ${result.error}`);
@@ -371,8 +375,8 @@ module.exports = [
             if (!found) return m.reply('❌ Kamu tidak sedang dalam game Werewolf!');
             const { groupJid, game } = found;
 
-            const targetJid = resolveTarget(m, args, game);
-            if (!targetJid) return m.reply('❌ Tag target!\nContoh: *.wsee @pemain*');
+            const targetJid = resolveTarget(m, args, game, true);
+            if (!targetJid) return m.reply('❌ Pilih nomor target!\nContoh: *.wsee 1*');
 
             const result = ww.seerAction(groupJid, m.sender, targetJid);
             if (!result.success) return m.reply(`❌ ${result.error}`);
@@ -399,7 +403,7 @@ module.exports = [
             const { groupJid, game } = found;
 
             const targetJid = resolveTarget(m, args, game);
-            if (!targetJid) return m.reply('❌ Tag target!\nContoh: *.wheal @pemain*');
+            if (!targetJid) return m.reply('❌ Pilih nomor target!\nContoh: *.wheal 1*');
 
             const result = ww.doctorAction(groupJid, m.sender, targetJid);
             if (!result.success) return m.reply(`❌ ${result.error}`);
@@ -422,7 +426,7 @@ module.exports = [
             const { groupJid, game } = found;
 
             const targetJid = resolveTarget(m, args, game);
-            if (!targetJid) return m.reply('❌ Tag target!\nContoh: *.wshoot @pemain*');
+            if (!targetJid) return m.reply('❌ Pilih nomor target!\nContoh: *.wshoot 1*');
 
             const result = ww.hunterShoot(groupJid, m.sender, targetJid);
             if (!result.success) return m.reply(`❌ ${result.error}`);
