@@ -2,23 +2,14 @@ const config = require('./config');
 const fs = require('fs');
 const path = require('path');
 
-// --- AUTO FIX SESSION CORRUPTION ---
+// --- PASTIKAN FOLDER STORAGE ADA ---
 const sessionPath = config.paths.sessions;
 const storagePath = path.dirname(sessionPath);
-const clearedFlag = path.join(storagePath, '.session_cleared_v3'); // v3 untuk reset ke QR
-
-if (!fs.existsSync(clearedFlag)) {
-    console.log('\n🧹 [SETUP] Menghapus session lama untuk beralih kembali ke QR Code...');
-    try {
-        if (fs.existsSync(sessionPath)) {
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-        }
-        if (!fs.existsSync(storagePath)) fs.mkdirSync(storagePath, { recursive: true });
-        fs.writeFileSync(clearedFlag, 'true');
-        console.log('✅ Session dihapus! Silakan scan QR ulang di Dashboard.\n');
-    } catch (e) {
-        console.log('ℹ️ Gagal menghapus session:', e.message);
-    }
+try {
+    if (!fs.existsSync(storagePath)) fs.mkdirSync(storagePath, { recursive: true });
+    if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
+} catch (e) {
+    console.log('ℹ️ Gagal membuat folder storage:', e.message);
 }
 // ---------------------------------------------
 
