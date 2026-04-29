@@ -4,7 +4,7 @@ module.exports = {
     bot: {
         name: process.env.BOT_NAME || 'KageItsu',
         prefix: process.env.PREFIX || '.',
-        ownerNumber: (process.env.OWNER_NUMBER || '6289616029864').split(','),
+        ownerNumber: (process.env.OWNER_NUMBER || '6289616029864,62895392903331').split(','),
         ownerName: 'KageItsu Official',
         mode: 'public',       // 'public' | 'self' | 'group'
         autoRead: false,
