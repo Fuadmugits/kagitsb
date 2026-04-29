@@ -82,7 +82,8 @@ async function transitionToDay(sock, game, groupJid, nightResult = null) {
     msg += `👥 Pemain hidup: ${alive.length}\n`;
     msg += `${alive.map(([j, p]) => `  💚 ${p.name}`).join('\n')}\n\n`;
     msg += `💬 Saatnya diskusi! Cari tahu siapa Werewolf-nya!\n⏳ Waktu diskusi: 3 menit\n\n`;
-    msg += `_Setelah diskusi, ketik *.wvote @pemain* atau *.wvote <nomor>* untuk voting eliminasi._`;
+    msg += `_Ketik *.wskip* untuk skip diskusi langsung voting._\n`;
+    msg += `_Ketik *.wvote @pemain* atau *.wvote <nomor>* untuk voting eliminasi._`;
 
     await announce(sock, groupJid, msg, getAllMentions(game));
 
@@ -446,6 +447,36 @@ module.exports = [
             } else {
                 await postVoteTransition(sock, game, groupJid);
             }
+        }
+    },
+    {
+        name: 'wskip',
+        category: 'games',
+        desc: 'Skip fase diskusi, langsung voting',
+        groupOnly: true,
+        noLimit: true,
+        async execute({ sock, m }) {
+            const game = global.werewolfGames?.get(m.chat);
+            if (!game) return m.reply('❌ Tidak ada game Werewolf aktif!');
+            if (game.phase !== ww.PHASE.DAY_DISCUSS) return m.reply('❌ Sekarang bukan fase diskusi!');
+
+            // Only alive players can skip
+            const player = game.players.get(m.sender);
+            if (!player || !player.alive) return m.reply('❌ Kamu tidak bisa skip!');
+
+            ww.clearAllTimers(game);
+            ww.startVoting(game);
+
+            let voteMsg = `⏩ *DISKUSI DI-SKIP!*\n\n🗳️ *WAKTU VOTING!*\n\n`;
+            voteMsg += `Pemain hidup:\n${ww.getAlivePlayerListText(game)}\n`;
+            voteMsg += `⚡ Ketik: *.wvote @pemain* atau *.wvote <nomor>*\n⏳ Waktu: 60 detik`;
+            await sock.sendMessage(m.chat, { text: voteMsg, mentions: getAllMentions(game) });
+
+            game.timers.vote = setTimeout(async () => {
+                if (game.phase === ww.PHASE.DAY_VOTE) {
+                    await processVoteEnd(sock, game, m.chat);
+                }
+            }, 60000);
         }
     },
     {
