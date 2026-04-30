@@ -129,6 +129,22 @@ module.exports = [
         }
     },
     {
+        name: 'myid',
+        aliases: ['siapasaya', 'whoami'],
+        category: 'bot', desc: 'Lihat JID/nomor kamu', noLimit: true,
+        async execute({ m }) {
+            const { getNumberFromJid, isOwner } = require('../lib/functions');
+            const number = getNumberFromJid(m.sender);
+            const ownerCheck = isOwner(m.sender);
+            let text = `🆔 *INFO JID KAMU*\n\n`;
+            text += `📞 JID Penuh : \`${m.sender}\`\n`;
+            text += `🔢 Nomor     : \`${number}\`\n`;
+            text += `👑 Owner Bot : ${ownerCheck ? '✅ Ya' : '❌ Bukan'}\n\n`;
+            text += `_Nomor di atas harus sama persis dengan OWNER_NUMBER di Railway._`;
+            await m.reply(text);
+        }
+    },
+    {
         name: 'speed',
         category: 'bot', desc: 'Cek kecepatan bot', noLimit: true,
         async execute({ m }) {
