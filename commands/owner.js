@@ -99,11 +99,10 @@ module.exports = [
     {
         name: 'addbalance', aliases: ['adduang', 'addbal'], category: 'owner', desc: 'Tambah balance', usage: '(@tag/nomor) (nominal)', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
-            // Jika ada mention, arg[0] adalah nominal; jika nomor telepon, arg[0]=nomor, arg[1]=nominal
-            const hasMention = !!m.mentionedJid?.[0];
             const hasQuoted  = !!m.quoted?.sender;
             const jid    = resolveJid(m, args, 0);
-            const amount = parseInt(hasMention || hasQuoted ? args[0] : args[1]) || 0;
+            // Quoted reply: amount in args[0] | mention/phone: amount in args[1]
+            const amount = parseInt(hasQuoted ? args[0] : args[1]) || 0;
             if (!jid) return m.reply('❌ Format: .addbalance @tag 1000\natau: .addbalance 628xxx 1000');
             if (!amount) return m.reply('❌ Masukkan jumlah balance!\nContoh: .addbalance @tag 5000');
             Users.getOrCreate(jid);
@@ -115,10 +114,10 @@ module.exports = [
     {
         name: 'addlimit', category: 'owner', desc: 'Tambah limit', usage: '(@tag/nomor) (jumlah)', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
-            const hasMention = !!m.mentionedJid?.[0];
             const hasQuoted  = !!m.quoted?.sender;
             const jid    = resolveJid(m, args, 0);
-            const amount = parseInt(hasMention || hasQuoted ? args[0] : args[1]) || 0;
+            // Quoted reply: amount in args[0] | mention/phone: amount in args[1]
+            const amount = parseInt(hasQuoted ? args[0] : args[1]) || 0;
             if (!jid) return m.reply('❌ Format: .addlimit @tag 10\natau: .addlimit 628xxx 10');
             if (!amount) return m.reply('❌ Masukkan jumlah limit!\nContoh: .addlimit @tag 20');
             Users.getOrCreate(jid);
