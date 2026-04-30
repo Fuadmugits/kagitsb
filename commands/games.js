@@ -60,9 +60,23 @@ module.exports = [
             const user = Users.getOrCreate(m.sender, m.pushName);
             if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
             if (bet < 100) return m.reply('❌ Minimal bet 100!');
-            const win = Math.random() > 0.55;
-            if (win) { Users.addBalance(m.sender, bet); Transactions.create(m.sender, 'casino_win', bet, 'Casino'); await m.reply(`🎰 *CASINO*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(bet)} balance`); }
-            else { Users.addBalance(m.sender, -bet); Transactions.create(m.sender, 'casino_lose', -bet, 'Casino'); await m.reply(`🎰 *CASINO*\n\n😢 Kamu KALAH!\n💸 -${formatNumber(bet)} balance`); }
+
+            const roll = Math.random();
+            // 10% jackpot → +2x modal | 35% menang → +1x modal | 55% kalah → -1x modal
+            if (roll < 0.10) {
+                const jackpotWin = bet * 2;
+                Users.addBalance(m.sender, jackpotWin);
+                Transactions.create(m.sender, 'casino_jackpot', jackpotWin, 'Casino');
+                await m.reply(`🎰 *CASINO*\n\n🎊🎊 *JACKPOT!!!* 🎊🎊\n\n🍀 Selamat! Kamu mendapatkan JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(2x modal!)*\n📊 Modal: ${formatNumber(bet)}`);
+            } else if (roll < 0.45) {
+                Users.addBalance(m.sender, bet);
+                Transactions.create(m.sender, 'casino_win', bet, 'Casino');
+                await m.reply(`🎰 *CASINO*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(bet)} balance\n📊 Modal: ${formatNumber(bet)}`);
+            } else {
+                Users.addBalance(m.sender, -bet);
+                Transactions.create(m.sender, 'casino_lose', -bet, 'Casino');
+                await m.reply(`🎰 *CASINO*\n\n😢 Kamu KALAH!\n💸 -${formatNumber(bet)} balance\n📊 Modal: ${formatNumber(bet)}`);
+            }
         }
     },
     {
