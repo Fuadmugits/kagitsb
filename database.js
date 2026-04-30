@@ -97,7 +97,27 @@ async function initDatabase() {
         earned_at TEXT DEFAULT (datetime('now')),
         UNIQUE(jid, badge_key)
     )`);
-    
+
+    // Prayer time subscriptions (per group/chat)
+    db.run(`CREATE TABLE IF NOT EXISTS prayer_subs (
+        jid TEXT PRIMARY KEY,
+        city TEXT NOT NULL,
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+    )`);
+
+    // Personal reminders
+    db.run(`CREATE TABLE IF NOT EXISTS reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        jid TEXT NOT NULL,
+        chat_jid TEXT NOT NULL,
+        remind_time TEXT NOT NULL,
+        message TEXT NOT NULL,
+        is_daily INTEGER DEFAULT 1,
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+    )`);
+
     saveDb();
     console.log('✅ Database initialized');
     return db;
@@ -511,5 +531,30 @@ function test() {
     console.log('📊 Commands logged:', CommandLogs.countAll());
 }
 
-module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, test };
+// ═══════════════════════════════════════
+//  PRAYER SUBSCRIPTIONS
+// ═══════════════════════════════════════
+const PrayerSubs = {
+    get(jid) { return queryOne('SELECT * FROM prayer_subs WHERE jid = ?', [jid]); },
+    set(jid, city) { run('INSERT OR REPLACE INTO prayer_subs (jid, city, active) VALUES (?, ?, 1)', [jid, city]); },
+    remove(jid) { run('DELETE FROM prayer_subs WHERE jid = ?', [jid]); },
+    getAll() { return query('SELECT * FROM prayer_subs WHERE active = 1'); },
+};
+
+// ═══════════════════════════════════════
+//  PERSONAL REMINDERS
+// ═══════════════════════════════════════
+const Reminders = {
+    add(jid, chatJid, time, message, isDaily = 1) {
+        run('INSERT INTO reminders (jid, chat_jid, remind_time, message, is_daily) VALUES (?, ?, ?, ?, ?)',
+            [jid, chatJid, time, message, isDaily ? 1 : 0]);
+        return queryOne('SELECT last_insert_rowid() as id')?.id;
+    },
+    getByUser(jid) { return query('SELECT * FROM reminders WHERE jid = ? AND active = 1 ORDER BY remind_time', [jid]); },
+    getDue(hhMM) { return query('SELECT * FROM reminders WHERE remind_time = ? AND active = 1', [hhMM]); },
+    deactivate(id) { run('UPDATE reminders SET active = 0 WHERE id = ?', [id]); },
+    delete(id, jid) { run('DELETE FROM reminders WHERE id = ? AND jid = ?', [id, jid]); },
+};
+
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, test };
 

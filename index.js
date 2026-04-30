@@ -17,6 +17,7 @@ const { startConnection, onMessage, onGroupParticipants } = require('./lib/conne
 const { loadCommands, handleMessage } = require('./lib/handler');
 const { createWebServer } = require('./web/server');
 const { initDatabase, test: dbTest } = require('./database');
+const { startScheduler } = require('./lib/scheduler');
 
 console.log(`
 ╔═══════════════════════════════════╗
@@ -75,6 +76,9 @@ async function main() {
         // 6. Start WhatsApp connection
         console.log('\n📱 Menghubungkan ke WhatsApp...');
         await startConnection(io);
+
+        // 7. Start scheduler (prayer reminders & personal reminders)
+        startScheduler();
         
         console.log('✅ Bot siap digunakan!\n');
         
