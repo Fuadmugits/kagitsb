@@ -3,6 +3,14 @@ const { Users, Transactions, Settings, CommandLogs, CoOwners } = require('../dat
 const config = require('../config');
 const fs = require('fs');
 
+// Helper: resolve JID dari @tag, quoted, atau nomor telepon
+function resolveJid(m, args, argIndex = 0) {
+    if (m.mentionedJid?.[0]) return m.mentionedJid[0];
+    if (m.quoted?.sender) return m.quoted.sender;
+    if (args[argIndex]) return parseJid(args[argIndex]);
+    return null;
+}
+
 module.exports = [
     {
         name: 'bot', category: 'owner', desc: 'Bot settings', usage: '[set]', ownerOnly: true, noLimit: true,
@@ -51,10 +59,10 @@ module.exports = [
         }
     },
     {
-        name: 'delprem', category: 'owner', desc: 'Hapus premium', usage: '(@tag)', ownerOnly: true, noLimit: true,
-        async execute({ m }) {
-            const jid = m.mentionedJid?.[0] || m.quoted?.sender;
-            if (!jid) return m.reply('❌ Tag user!');
+        name: 'delprem', category: 'owner', desc: 'Hapus premium', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args);
+            if (!jid) return m.reply('❌ Tag user, reply pesan, atau masukkan nomor!\nContoh: .delprem 628xxx');
             Users.removePremium(jid);
             await m.reply(`✅ Premium @${jid.split('@')[0]} dihapus!`);
         }
@@ -70,30 +78,34 @@ module.exports = [
         }
     },
     {
-        name: 'ban', category: 'owner', desc: 'Ban user', usage: '(@tag)', ownerOnly: true, noLimit: true,
-        async execute({ m }) {
-            const jid = m.mentionedJid?.[0] || m.quoted?.sender;
-            if (!jid) return m.reply('❌ Tag user!');
+        name: 'ban', category: 'owner', desc: 'Ban user', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args);
+            if (!jid) return m.reply('❌ Tag user, reply pesan, atau masukkan nomor!\nContoh: .ban 628xxx');
             Users.getOrCreate(jid);
             Users.ban(jid);
             await m.reply(`🔨 @${jid.split('@')[0]} telah di-BAN!`);
         }
     },
     {
-        name: 'unban', category: 'owner', desc: 'Unban user', usage: '(@tag)', ownerOnly: true, noLimit: true,
-        async execute({ m }) {
-            const jid = m.mentionedJid?.[0] || m.quoted?.sender;
-            if (!jid) return m.reply('❌ Tag user!');
+        name: 'unban', category: 'owner', desc: 'Unban user', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args);
+            if (!jid) return m.reply('❌ Tag user, reply pesan, atau masukkan nomor!');
             Users.unban(jid);
             await m.reply(`✅ @${jid.split('@')[0]} telah di-UNBAN!`);
         }
     },
     {
-        name: 'addbalance', aliases: ['adduang', 'addbal'], category: 'owner', desc: 'Tambah balance', usage: '(@tag) (nominal)', ownerOnly: true, noLimit: true,
+        name: 'addbalance', aliases: ['adduang', 'addbal'], category: 'owner', desc: 'Tambah balance', usage: '(@tag/nomor) (nominal)', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
-            const jid = m.mentionedJid?.[0] || (args[0] ? args[0].replace(/[^0-9]/g,'') + '@s.whatsapp.net' : null);
-            const amount = parseInt(args[1] || args[0]) || 0;
-            if (!jid || !amount) return m.reply('❌ .addbalance @tag nominal');
+            // Jika ada mention, arg[0] adalah nominal; jika nomor telepon, arg[0]=nomor, arg[1]=nominal
+            const hasMention = !!m.mentionedJid?.[0];
+            const hasQuoted  = !!m.quoted?.sender;
+            const jid    = resolveJid(m, args, 0);
+            const amount = parseInt(hasMention || hasQuoted ? args[0] : args[1]) || 0;
+            if (!jid) return m.reply('❌ Format: .addbalance @tag 1000\natau: .addbalance 628xxx 1000');
+            if (!amount) return m.reply('❌ Masukkan jumlah balance!\nContoh: .addbalance @tag 5000');
             Users.getOrCreate(jid);
             Users.addBalance(jid, amount);
             Transactions.create(jid, 'topup', amount, 'Topup by owner');
@@ -101,11 +113,14 @@ module.exports = [
         }
     },
     {
-        name: 'addlimit', category: 'owner', desc: 'Tambah limit', usage: '(@tag) (jumlah)', ownerOnly: true, noLimit: true,
+        name: 'addlimit', category: 'owner', desc: 'Tambah limit', usage: '(@tag/nomor) (jumlah)', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
-            const jid = m.mentionedJid?.[0] || (args[0] ? args[0].replace(/[^0-9]/g,'') + '@s.whatsapp.net' : null);
-            const amount = parseInt(args[1] || args[0]) || 0;
-            if (!jid || !amount) return m.reply('❌ .addlimit @tag jumlah');
+            const hasMention = !!m.mentionedJid?.[0];
+            const hasQuoted  = !!m.quoted?.sender;
+            const jid    = resolveJid(m, args, 0);
+            const amount = parseInt(hasMention || hasQuoted ? args[0] : args[1]) || 0;
+            if (!jid) return m.reply('❌ Format: .addlimit @tag 10\natau: .addlimit 628xxx 10');
+            if (!amount) return m.reply('❌ Masukkan jumlah limit!\nContoh: .addlimit @tag 20');
             Users.getOrCreate(jid);
             Users.addLimit(jid, amount);
             await m.reply(`✅ +${amount} limit ke @${jid.split('@')[0]}`);
@@ -187,30 +202,30 @@ module.exports = [
         async execute({ sock, m }) { await sock.chatModify({ delete: true, lastMessages: [{ key: m.key, messageTimestamp: m.raw.messageTimestamp }] }, m.chat); await m.reply('✅ Chat dibersihkan!'); }
     },
     {
-        name: 'block', category: 'owner', desc: 'Block user', usage: '(@tag)', ownerOnly: true, noLimit: true,
-        async execute({ sock, m }) {
-            const jid = m.mentionedJid?.[0] || m.quoted?.sender;
-            if (!jid) return m.reply('❌ Tag user!');
+        name: 'block', category: 'owner', desc: 'Block user', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ sock, m, args }) {
+            const jid = resolveJid(m, args);
+            if (!jid) return m.reply('❌ Tag user, reply, atau masukkan nomor!');
             await sock.updateBlockStatus(jid, 'block');
             await m.reply(`✅ @${jid.split('@')[0]} diblock!`);
         }
     },
     {
-        name: 'openblock', aliases: ['unblock'], category: 'owner', desc: 'Unblock user', usage: '(@tag)', ownerOnly: true, noLimit: true,
-        async execute({ sock, m }) {
-            const jid = m.mentionedJid?.[0] || m.quoted?.sender;
-            if (!jid) return m.reply('❌ Tag user!');
+        name: 'openblock', aliases: ['unblock'], category: 'owner', desc: 'Unblock user', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ sock, m, args }) {
+            const jid = resolveJid(m, args);
+            if (!jid) return m.reply('❌ Tag user, reply, atau masukkan nomor!');
             await sock.updateBlockStatus(jid, 'unblock');
             await m.reply(`✅ @${jid.split('@')[0]} di-unblock!`);
         }
     },
     {
-        name: 'mute', category: 'owner', desc: 'Mute user', ownerOnly: true, noLimit: true,
-        async execute({ m }) { const jid = m.mentionedJid?.[0] || m.quoted?.sender; if (!jid) return m.reply('❌ Tag user!'); Users.getOrCreate(jid); Users.mute(jid); await m.reply('✅ User di-mute!'); }
+        name: 'mute', category: 'owner', desc: 'Mute user', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) { const jid = resolveJid(m, args); if (!jid) return m.reply('❌ Tag user, reply, atau masukkan nomor!'); Users.getOrCreate(jid); Users.mute(jid); await m.reply('✅ User di-mute!'); }
     },
     {
-        name: 'unmute', category: 'owner', desc: 'Unmute user', ownerOnly: true, noLimit: true,
-        async execute({ m }) { const jid = m.mentionedJid?.[0] || m.quoted?.sender; if (!jid) return m.reply('❌ Tag user!'); Users.unmute(jid); await m.reply('✅ User di-unmute!'); }
+        name: 'unmute', category: 'owner', desc: 'Unmute user', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) { const jid = resolveJid(m, args); if (!jid) return m.reply('❌ Tag user, reply, atau masukkan nomor!'); Users.unmute(jid); await m.reply('✅ User di-unmute!'); }
     },
 
     // ── Co-Owner Management (hanya main owner) ────────
