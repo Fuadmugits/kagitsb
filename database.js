@@ -118,6 +118,13 @@ async function initDatabase() {
         created_at TEXT DEFAULT (datetime('now'))
     )`);
 
+    // Co-owners
+    db.run(`CREATE TABLE IF NOT EXISTS co_owners (
+        jid TEXT PRIMARY KEY,
+        added_by TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+    )`);
+
     saveDb();
     console.log('✅ Database initialized');
     return db;
@@ -556,5 +563,14 @@ const Reminders = {
     delete(id, jid) { run('DELETE FROM reminders WHERE id = ? AND jid = ?', [id, jid]); },
 };
 
-module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, test };
+// ═══════════════════════════════════════
+//  CO-OWNERS
+// ═══════════════════════════════════════
+const CoOwners = {
+    add(jid, addedBy) { run('INSERT OR IGNORE INTO co_owners (jid, added_by) VALUES (?, ?)', [jid, addedBy]); },
+    remove(jid) { run('DELETE FROM co_owners WHERE jid = ?', [jid]); },
+    isCoOwner(jid) { return !!queryOne('SELECT 1 FROM co_owners WHERE jid = ?', [jid]); },
+    getAll() { return query('SELECT co.jid, co.added_by, co.created_at, u.name FROM co_owners co LEFT JOIN users u ON co.jid = u.jid'); },
+};
 
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, test };

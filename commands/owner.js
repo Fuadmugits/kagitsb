@@ -1,5 +1,5 @@
-const { isOwner, formatNumber, parseJid } = require('../lib/functions');
-const { Users, Transactions, Settings, CommandLogs } = require('../database');
+const { isOwner, formatNumber, parseJid, getNumberFromJid } = require('../lib/functions');
+const { Users, Transactions, Settings, CommandLogs, CoOwners } = require('../database');
 const config = require('../config');
 const fs = require('fs');
 
@@ -212,4 +212,79 @@ module.exports = [
         name: 'unmute', category: 'owner', desc: 'Unmute user', ownerOnly: true, noLimit: true,
         async execute({ m }) { const jid = m.mentionedJid?.[0] || m.quoted?.sender; if (!jid) return m.reply('❌ Tag user!'); Users.unmute(jid); await m.reply('✅ User di-unmute!'); }
     },
+
+    // ── Co-Owner Management (hanya main owner) ────────
+    {
+        name: 'addcoowner',
+        aliases: ['addco'],
+        category: 'owner',
+        desc: 'Tambah co-owner',
+        usage: '(@tag/nomor)',
+        ownerOnly: true,
+        realOwnerOnly: true,
+        noLimit: true,
+        async execute({ m, args }) {
+            // Hanya main owner (bukan co-owner) yang boleh
+            const senderNum = getNumberFromJid(m.sender);
+            if (!config.bot.ownerNumber.includes(senderNum)) {
+                return m.reply('❌ Hanya *owner utama* yang bisa menambah co-owner!');
+            }
+            let jid = m.mentionedJid?.[0];
+            if (!jid && args[0]) jid = parseJid(args[0]);
+            if (!jid) return m.reply('❌ Tag atau masukkan nomor user!\nContoh: .addcoowner @tag atau .addcoowner 628xxx');
+            if (config.bot.ownerNumber.includes(getNumberFromJid(jid))) {
+                return m.reply('❌ User ini sudah owner utama!');
+            }
+            CoOwners.add(jid, m.sender);
+            Users.getOrCreate(jid);
+            await m.reply(
+                `✅ *Co-Owner Ditambahkan!*\n\n` +
+                `👤 User: @${jid.split('@')[0]}\n` +
+                `🔑 Hak akses: Semua command owner (kecuali manage co-owner)\n\n` +
+                `_Hapus dengan .delcoowner @tag_`,
+                { mentions: [jid] }
+            );
+        }
+    },
+    {
+        name: 'delcoowner',
+        aliases: ['delco', 'removecoowner'],
+        category: 'owner',
+        desc: 'Hapus co-owner',
+        usage: '(@tag/nomor)',
+        ownerOnly: true,
+        noLimit: true,
+        async execute({ m, args }) {
+            const senderNum = getNumberFromJid(m.sender);
+            if (!config.bot.ownerNumber.includes(senderNum)) {
+                return m.reply('❌ Hanya *owner utama* yang bisa menghapus co-owner!');
+            }
+            let jid = m.mentionedJid?.[0];
+            if (!jid && args[0]) jid = parseJid(args[0]);
+            if (!jid) return m.reply('❌ Tag atau masukkan nomor user!');
+            if (!CoOwners.isCoOwner(jid)) return m.reply('❌ User ini bukan co-owner!');
+            CoOwners.remove(jid);
+            await m.reply(`✅ Co-owner @${jid.split('@')[0]} telah dihapus.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'listcoowner',
+        aliases: ['listco'],
+        category: 'owner',
+        desc: 'Lihat daftar co-owner',
+        ownerOnly: true,
+        noLimit: true,
+        async execute({ m }) {
+            const list = CoOwners.getAll();
+            if (!list.length) return m.reply('📋 Belum ada co-owner.\n\nTambah dengan .addcoowner @tag');
+            let text = `👑 *DAFTAR CO-OWNER* (${list.length})\n\n`;
+            list.forEach((co, i) => {
+                text += `${i+1}. *${co.name || 'Unknown'}* (${co.jid.split('@')[0]})\n`;
+                text += `   📅 Ditambah: ${co.created_at?.split('T')[0] || '-'}\n\n`;
+            });
+            text += `_Hapus dengan .delcoowner @tag_`;
+            await m.reply(text);
+        }
+    },
 ];
+
