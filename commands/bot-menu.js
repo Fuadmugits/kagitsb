@@ -29,9 +29,11 @@ module.exports = [
                 download: '𝙳𝙾𝚆𝙽𝙻𝙾𝙰𝙳 𝙼𝙴𝙽𝚄', quotes: '𝚀𝚄𝙾𝚃𝙴𝚂 𝙼𝙴𝙽𝚄',
                 tools: '𝚃𝙾𝙾𝙻𝚂 𝙼𝙴𝙽𝚄', ai: '𝙰𝙸 𝙼𝙴𝙽𝚄', anime: '𝙰𝙽𝙸𝙼𝙴 𝙼𝙴𝙽𝚄',
                 games: '𝙶𝙰𝙼𝙴 𝙼𝙴𝙽𝚄', panel: '𝙿𝙰𝙽𝙴𝙻 𝙼𝙴𝙽𝚄', fun: '𝙵𝚄𝙽 𝙼𝙴𝙽𝚄',
+                social: '𝚂𝙾𝙲𝙸𝙰𝙻 𝙼𝙴𝙽𝚄',
                 random: '𝚁𝙰𝙽𝙳𝙾𝙼 𝙼𝙴𝙽𝚄', stalker: '𝚂𝚃𝙰𝙻𝙺𝙴𝚁 𝙼𝙴𝙽𝚄',
                 owner: '𝙾𝚆𝙽𝙴𝚁 𝙼𝙴𝙽𝚄', other: '𝙾𝚃𝙷𝙴𝚁',
             };
+
 
             let text = `╔═══ ❖ 𝚄𝚂𝙴𝚁 𝙸𝙽𝙵𝙾 ❖ ═══╗\n`;
             text += `║ 👤 𝙽𝚊𝚖𝚊     : ${m.pushName}\n`;
@@ -56,7 +58,7 @@ module.exports = [
             text += `║ ⏰ 𝙹𝚊𝚖      : ${getTime()} 𝚆𝙸𝙱\n`;
             text += `╚═══════════════════╝\n`;
 
-            const order = ['bot','group','search','download','quotes','tools','ai','anime','games','panel','fun','random','stalker','owner'];
+            const order = ['bot','group','search','download','quotes','tools','ai','anime','games','social','panel','fun','random','stalker','owner'];
             for (const cat of order) {
                 if (!categories[cat] || categories[cat].length === 0) continue;
                 if (cat === 'owner' && !isOwner(m.sender)) continue;

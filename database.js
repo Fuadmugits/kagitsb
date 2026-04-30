@@ -81,6 +81,22 @@ async function initDatabase() {
         last_chat TEXT,
         PRIMARY KEY (jid, group_jid)
     )`);
+
+    // Check-in streak system
+    db.run(`CREATE TABLE IF NOT EXISTS checkin (
+        jid TEXT PRIMARY KEY,
+        streak INTEGER DEFAULT 0,
+        last_checkin TEXT,
+        total_checkins INTEGER DEFAULT 0
+    )`);
+
+    // Achievements / Badges
+    db.run(`CREATE TABLE IF NOT EXISTS achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        jid TEXT, badge_key TEXT,
+        earned_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(jid, badge_key)
+    )`);
     
     saveDb();
     console.log('✅ Database initialized');
@@ -392,11 +408,108 @@ const GroupLevels = {
     }
 };
 
+// ═══════════════════════════════════════
+//  CHECK-IN / DAILY STREAK
+// ═══════════════════════════════════════
+const CheckIn = {
+    get(jid) { return queryOne('SELECT * FROM checkin WHERE jid = ?', [jid]); },
+
+    // Returns { ok, streak, reward, isNewStreak, lost }
+    doCheckIn(jid) {
+        const todayWIB = new Date(Date.now() + 7 * 3600 * 1000).toISOString().split('T')[0];
+        const row = this.get(jid);
+
+        if (!row) {
+            // First ever check-in
+            run('INSERT INTO checkin (jid, streak, last_checkin, total_checkins) VALUES (?, 1, ?, 1)', [jid, todayWIB]);
+            return { ok: true, streak: 1, reward: 500, isFirst: true, lost: false };
+        }
+
+        if (row.last_checkin === todayWIB) return { ok: false, already: true };
+
+        const yesterday = new Date(Date.now() + 7 * 3600 * 1000 - 86400000).toISOString().split('T')[0];
+        const isConsecutive = row.last_checkin === yesterday;
+        const newStreak = isConsecutive ? row.streak + 1 : 1;
+        const lost = !isConsecutive && row.streak > 1;
+
+        // Reward: base 500 + streak bonus (max streak bonus di 30 hari)
+        const streakBonus = Math.min(newStreak - 1, 29) * 50;
+        const reward = 500 + streakBonus;
+
+        run('UPDATE checkin SET streak = ?, last_checkin = ?, total_checkins = total_checkins + 1 WHERE jid = ?',
+            [newStreak, todayWIB, jid]);
+        Users.addBalance(jid, reward);
+        Transactions.create(jid, 'checkin', reward, `Daily check-in streak ${newStreak}`);
+
+        return { ok: true, streak: newStreak, reward, lost, isFirst: false };
+    },
+
+    getLeaderboard() {
+        return query(`SELECT c.jid, c.streak, c.total_checkins, u.name
+            FROM checkin c LEFT JOIN users u ON c.jid = u.jid
+            ORDER BY c.streak DESC LIMIT 10`);
+    }
+};
+
+// ═══════════════════════════════════════
+//  ACHIEVEMENTS / BADGES
+// ═══════════════════════════════════════
+const BADGE_DEFS = [
+    { key: 'first_checkin',   icon: '🌟', name: 'Pemula Setia',     desc: 'Check-in pertama kali' },
+    { key: 'streak_7',        icon: '🔥', name: 'On Fire!',          desc: 'Streak check-in 7 hari' },
+    { key: 'streak_30',       icon: '💎', name: 'Diamond Streak',    desc: 'Streak check-in 30 hari' },
+    { key: 'casino_jackpot',  icon: '🎰', name: 'Penjudi Ulung',     desc: 'Menang jackpot casino' },
+    { key: 'rich_100k',       icon: '💰', name: 'Sultan',            desc: 'Punya balance 100.000+' },
+    { key: 'transfer_first',  icon: '💸', name: 'Dermawan',          desc: 'Transfer balance pertama' },
+    { key: 'werewolf_win',    icon: '🐺', name: 'Werewolf Master',   desc: 'Menang game werewolf' },
+    { key: 'game_100',        icon: '🏆', name: 'Gamer Sejati',      desc: '100x main game' },
+];
+
+const Achievements = {
+    getBadgeDef(key) { return BADGE_DEFS.find(b => b.key === key) || null; },
+    getAllDefs() { return BADGE_DEFS; },
+
+    // Grant a badge — returns true if newly earned, false if already had it
+    grant(jid, badgeKey) {
+        try {
+            db.run('INSERT OR IGNORE INTO achievements (jid, badge_key) VALUES (?, ?)', [jid, badgeKey]);
+            saveDb();
+            // Check if insert happened (changes > 0)
+            const changes = db.exec('SELECT changes() as c')?.[0]?.values?.[0]?.[0];
+            return changes > 0;
+        } catch { return false; }
+    },
+
+    // Check multiple badge conditions at once after an action
+    check(jid) {
+        const earned = [];
+        const user = Users.get(jid);
+        const ci = CheckIn.get(jid);
+
+        if (ci?.total_checkins === 1)    if (this.grant(jid, 'first_checkin'))  earned.push('first_checkin');
+        if (ci?.streak >= 7)             if (this.grant(jid, 'streak_7'))       earned.push('streak_7');
+        if (ci?.streak >= 30)            if (this.grant(jid, 'streak_30'))      earned.push('streak_30');
+        if (user?.balance >= 100000)     if (this.grant(jid, 'rich_100k'))      earned.push('rich_100k');
+
+        return earned.map(k => this.getBadgeDef(k)).filter(Boolean);
+    },
+
+    getUserBadges(jid) {
+        const rows = query('SELECT badge_key, earned_at FROM achievements WHERE jid = ? ORDER BY earned_at DESC', [jid]);
+        return rows.map(r => {
+            const def = BADGE_DEFS.find(b => b.key === r.badge_key);
+            return def ? { ...def, earned_at: r.earned_at } : null;
+        }).filter(Boolean);
+    },
+
+    count(jid) { return queryOne('SELECT COUNT(*) as total FROM achievements WHERE jid = ?', [jid])?.total || 0; }
+};
+
 function test() {
     console.log('📊 Users:', Users.count());
     console.log('📊 Premium:', Users.countPremium());
     console.log('📊 Commands logged:', CommandLogs.countAll());
 }
 
-module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, test };
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, test };
 

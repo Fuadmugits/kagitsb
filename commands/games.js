@@ -1,5 +1,5 @@
 const { randomInt, formatNumber, pickRandom, fetchJson } = require('../lib/functions');
-const { Users, Transactions } = require('../database');
+const { Users, Transactions, Achievements } = require('../database');
 const config = require('../config');
 
 const activeGames = new Map();
@@ -67,7 +67,8 @@ module.exports = [
                 const jackpotWin = bet * 2;
                 Users.addBalance(m.sender, jackpotWin);
                 Transactions.create(m.sender, 'casino_jackpot', jackpotWin, 'Casino');
-                await m.reply(`🎰 *CASINO*\n\n🎊🎊 *JACKPOT!!!* 🎊🎊\n\n🍀 Selamat! Kamu mendapatkan JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(2x modal!)*\n📊 Modal: ${formatNumber(bet)}`);
+                Achievements.grant(m.sender, 'casino_jackpot'); // 🏅 Badge Penjudi Ulung
+                await m.reply(`🎰 *CASINO*\n\n🎊🎊 *JACKPOT!!!* 🎊🎊\n\n🍀 Selamat! Kamu mendapatkan JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(2x modal!)*\n📊 Modal: ${formatNumber(bet)}\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
             } else if (roll < 0.45) {
                 Users.addBalance(m.sender, bet);
                 Transactions.create(m.sender, 'casino_win', bet, 'Casino');
