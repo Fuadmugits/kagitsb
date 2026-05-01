@@ -2,10 +2,10 @@ require('dotenv').config();
 
 module.exports = {
     bot: {
-        name: process.env.BOT_NAME || 'KageItsu',
+        name: process.env.BOT_NAME || 'MyBot',
         prefix: process.env.PREFIX || '.',
-        ownerNumber: (process.env.OWNER_NUMBER || '6289616029864,62895392903331').split(',').map(s => s.trim()),
-        ownerName: 'KageItsu Official',
+        ownerNumber: (process.env.OWNER_NUMBER || '').split(',').map(s => s.trim()).filter(Boolean),
+        ownerName: process.env.OWNER_NAME || 'Owner',
         mode: 'public',       // 'public' | 'self' | 'group'
         autoRead: false,
         autoTyping: true,
@@ -13,7 +13,7 @@ module.exports = {
     },
     web: {
         port: parseInt(process.env.PORT) || 3000,
-        jwtSecret: process.env.JWT_SECRET || 'kagaitsb_default_secret_2026',
+        jwtSecret: process.env.JWT_SECRET || 'change_this_secret_key',
     },
     api: {
         geminiKey: process.env.GEMINI_API_KEY || '',
@@ -22,12 +22,25 @@ module.exports = {
     limits: {
         free: 20,
         premium: 999999,
+        maxBalance: 500000,   // Batas maksimal balance yang bisa dimiliki user
     },
     prices: {
-        premium_30d: 15000,
+        premium_30d: 25000,
+        premium_7d: 5000,
+        premium_14d: 10000,
         limit_10: 2000,
         limit_50: 8000,
         limit_100: 14000,
+    },
+    payment: {
+        // Info rekening / kontak owner untuk pembelian premium dengan uang asli
+        ownerWa: process.env.OWNER_NUMBER || '',   // Nomor WA owner (otomatis dari env)
+        methods: [
+            { name: 'Dana',    number: process.env.PAYMENT_DANA    || '-' },
+            { name: 'GoPay',   number: process.env.PAYMENT_GOPAY   || '-' },
+            { name: 'OVO',     number: process.env.PAYMENT_OVO     || '-' },
+            { name: 'BCA',     number: process.env.PAYMENT_BCA     || '-' },
+        ],
     },
     dailyClaim: {
         balance: 500,

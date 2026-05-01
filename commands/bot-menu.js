@@ -170,30 +170,82 @@ module.exports = [
 
     {
         name: 'buy',
-        category: 'bot', desc: 'Beli item', usage: '[item] (nominal)',
+        category: 'bot', desc: 'Beli item dengan balance', usage: '[item]',
         async execute({ m, args }) {
             if (!args[0]) {
                 let text = `🛒 *SHOP*\n\n`;
-                text += `◇ .buy premium — Rp ${formatNumber(config.prices.premium_30d)} (30 hari)\n`;
-                text += `◇ .buy limit10 — Rp ${formatNumber(config.prices.limit_10)} (10 limit)\n`;
-                text += `◇ .buy limit50 — Rp ${formatNumber(config.prices.limit_50)} (50 limit)\n`;
-                text += `◇ .buy limit100 — Rp ${formatNumber(config.prices.limit_100)} (100 limit)\n`;
+                text += `*💎 Premium (Bayar ke Owner):*\n`;
+                text += `◇ .buyprem 7  — Rp ${formatNumber(config.prices.premium_7d)} (7 hari)\n`;
+                text += `◇ .buyprem 14 — Rp ${formatNumber(config.prices.premium_14d)} (14 hari)\n`;
+                text += `◇ .buyprem 30 — Rp ${formatNumber(config.prices.premium_30d)} (30 hari)\n\n`;
+                text += `*📉 Limit (Pakai Balance):*\n`;
+                text += `◇ .buy limit10  — ${formatNumber(config.prices.limit_10)} balance (10 limit)\n`;
+                text += `◇ .buy limit50  — ${formatNumber(config.prices.limit_50)} balance (50 limit)\n`;
+                text += `◇ .buy limit100 — ${formatNumber(config.prices.limit_100)} balance (100 limit)\n\n`;
+                text += `_💡 Premium hanya bisa dibeli dengan uang asli ke owner. Ketik .buyprem untuk info cara bayar!_`;
                 return m.reply(text);
             }
             const user = Users.getOrCreate(m.sender, m.pushName);
             const item = args[0].toLowerCase();
+
+            // Blokir pembelian premium via balance
+            if (item === 'premium') {
+                return m.reply(
+                    `❌ *Premium tidak bisa dibeli dengan balance!*\n\n` +
+                    `💎 Premium hanya tersedia dengan pembayaran uang asli ke owner.\n\n` +
+                    `📌 Ketik *.buyprem* untuk melihat harga dan cara pembayaran.`
+                );
+            }
+
             const items = {
-                premium: { price: config.prices.premium_30d, action: () => { Users.setPremium(m.sender, 30); }, msg: '💎 Premium 30 hari aktif!' },
-                limit10: { price: config.prices.limit_10, action: () => { Users.addLimit(m.sender, 10); }, msg: '📉 +10 Limit!' },
-                limit50: { price: config.prices.limit_50, action: () => { Users.addLimit(m.sender, 50); }, msg: '📉 +50 Limit!' },
-                limit100: { price: config.prices.limit_100, action: () => { Users.addLimit(m.sender, 100); }, msg: '📉 +100 Limit!' },
+                limit10:  { price: config.prices.limit_10,  action: () => { Users.addLimit(m.sender, 10);  }, msg: '📉 +10 Limit berhasil ditambahkan!' },
+                limit50:  { price: config.prices.limit_50,  action: () => { Users.addLimit(m.sender, 50);  }, msg: '📉 +50 Limit berhasil ditambahkan!' },
+                limit100: { price: config.prices.limit_100, action: () => { Users.addLimit(m.sender, 100); }, msg: '📉 +100 Limit berhasil ditambahkan!' },
             };
             if (!items[item]) return m.reply('❌ Item tidak ditemukan! Ketik *.buy* untuk lihat daftar.');
-            if (user.balance < items[item].price) return m.reply(`❌ Balance tidak cukup! Butuh ${formatNumber(items[item].price)}, kamu punya ${formatNumber(user.balance)}`);
+            if (user.balance < items[item].price) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: ${formatNumber(items[item].price)}\n💳 Kamu punya: ${formatNumber(user.balance)}`);
             Users.addBalance(m.sender, -items[item].price);
             items[item].action();
             Transactions.create(m.sender, 'buy', -items[item].price, `Beli ${item}`);
-            await m.reply(`✅ ${items[item].msg}`);
+            await m.reply(`✅ ${items[item].msg}\n\n💰 Sisa balance: ${formatNumber(Users.get(m.sender)?.balance || 0)}`);
+        }
+    },
+    {
+        name: 'buyprem',
+        aliases: ['belipremium', 'orderprem'],
+        category: 'bot', desc: 'Info & cara beli Premium (uang asli)', noLimit: true,
+        async execute({ m }) {
+            const cfg = config;
+            const ownerNums = cfg.bot.ownerNumber || [];
+            const methods = cfg.payment?.methods?.filter(p => p.number && p.number !== '-') || [];
+
+            let text = `💎 *BELI PREMIUM*\n\n`;
+            text += `❗ *Premium hanya bisa dibeli dengan uang asli ke owner.*\n`;
+            text += `Tidak bisa menggunakan balance bot.\n\n`;
+            text += `📋 *Harga Premium:*\n`;
+            text += `▸ 7 hari  → Rp ${formatNumber(cfg.prices.premium_7d)}\n`;
+            text += `▸ 14 hari → Rp ${formatNumber(cfg.prices.premium_14d)}\n`;
+            text += `▸ 30 hari → Rp ${formatNumber(cfg.prices.premium_30d)}\n\n`;
+            text += `💳 *Metode Pembayaran:*\n`;
+            if (methods.length) {
+                methods.forEach(p => { text += `▸ ${p.name}: *${p.number}*\n`; });
+            } else {
+                text += `▸ Tanya langsung ke owner untuk info rekening.\n`;
+            }
+            text += `\n📞 *Hubungi Owner:*\n`;
+            if (ownerNums.length) {
+                ownerNums.forEach(num => { text += `▸ wa.me/${num}\n`; });
+            } else {
+                text += `▸ Tanya admin grup ini.\n`;
+            }
+            text += `\n📌 *Cara Order:*\n`;
+            text += `1. Pilih durasi premium\n`;
+            text += `2. Transfer ke salah satu rekening di atas\n`;
+            text += `3. Screenshot bukti transfer\n`;
+            text += `4. Kirim ke owner beserta nomor WA kamu\n`;
+            text += `5. Owner akan aktifkan premium kamu ✅\n\n`;
+            text += `_Benefit Premium: limit unlimited, akses fitur eksklusif (.rvo, dll)_ 🌟`;
+            await m.reply(text);
         }
     },
     {

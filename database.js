@@ -168,7 +168,16 @@ const Users = {
     create(jid, name = 'Unknown') { run(`INSERT OR IGNORE INTO users (jid, name, limit_count) VALUES (?, ?, ?)`, [jid, name, config.limits.free]); return this.get(jid); },
     getOrCreate(jid, name = 'Unknown') { let u = this.get(jid); if (!u) u = this.create(jid, name); return u; },
     updateName(jid, name) { run('UPDATE users SET name = ?, updated_at = datetime("now") WHERE jid = ?', [name, jid]); },
-    addBalance(jid, amount) { run('UPDATE users SET balance = balance + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
+    addBalance(jid, amount) {
+        const maxBalance = config.limits.maxBalance || 500000;
+        // Jika penambahan positif, batasi agar tidak melebihi maxBalance
+        if (amount > 0) {
+            run(`UPDATE users SET balance = MIN(balance + ?, ?), updated_at = datetime("now") WHERE jid = ?`, [amount, maxBalance, jid]);
+        } else {
+            // Pengurangan balance tetap normal (tidak ada batas bawah selain logika di tempat lain)
+            run('UPDATE users SET balance = balance + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]);
+        }
+    },
     setBalance(jid, amount) { run('UPDATE users SET balance = ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
     addLimit(jid, amount) { run('UPDATE users SET limit_count = limit_count + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
     deductLimit(jid) { run('UPDATE users SET limit_count = limit_count - 1, total_commands = total_commands + 1, updated_at = datetime("now") WHERE jid = ?', [jid]); },
