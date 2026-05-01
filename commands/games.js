@@ -1160,4 +1160,15 @@ module.exports = [
             await ask('q1', m, null);
         }
     },
+    {
+        name: 'nyerah', aliases: ['stopgame', 'berhenti'], category: 'games', desc: 'Menghentikan permainan yang sedang berlangsung',
+        async execute({ m }) {
+            if (global.activeGames && global.activeGames.has(m.chat)) {
+                global.activeGames.delete(m.chat);
+                await m.reply('🏳️ Permainan di chat ini telah dihentikan.');
+            } else {
+                await m.reply('❌ Tidak ada permainan yang sedang berlangsung di chat ini.');
+            }
+        }
+    }
 ];
