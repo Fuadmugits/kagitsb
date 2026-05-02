@@ -1,5 +1,5 @@
 const { isOwner, formatNumber, parseJid, getNumberFromJid } = require('../lib/functions');
-const { Users, Transactions, Settings, CommandLogs, CoOwners } = require('../database');
+const { Users, Transactions, Settings, CommandLogs, CoOwners, CustomTitles, GroupLevels } = require('../database');
 const config = require('../config');
 const fs = require('fs');
 
@@ -300,5 +300,151 @@ module.exports = [
             await m.reply(text);
         }
     },
-];
 
+    // ── Custom Title & Level Management (owner, group only) ────────
+    {
+        name: 'settitle',
+        category: 'owner',
+        desc: 'Set custom title member di grup',
+        usage: '(@tag/nomor) (title)',
+        ownerOnly: true,
+        groupOnly: true,
+        noLimit: true,
+        async execute({ m, args, text }) {
+            let jid = null;
+            let titleText = '';
+
+            if (m.mentionedJid?.[0]) {
+                jid = m.mentionedJid[0];
+                // Title = semua args kecuali mention
+                titleText = args.filter(a => !a.startsWith('@')).join(' ').trim();
+            } else if (m.quoted?.sender) {
+                jid = m.quoted.sender;
+                titleText = text.trim();
+            } else if (args[0]) {
+                jid = parseJid(args[0]);
+                titleText = args.slice(1).join(' ').trim();
+            }
+
+            if (!jid) return m.reply(
+                '❌ Tag/reply user atau masukkan nomor!\n\n' +
+                '📌 Contoh:\n' +
+                '• .settitle @tag Raja Bot\n' +
+                '• .settitle 628xxx Sultan Grup\n' +
+                '• Reply pesan + .settitle Pro Player'
+            );
+            if (!titleText) return m.reply(
+                '❌ Masukkan title!\n\n' +
+                '📌 Contoh:\n' +
+                '• .settitle @tag Raja Bot\n' +
+                '• .settitle @tag Pro Player\n' +
+                '• .settitle @tag Master Sejati\n\n' +
+                '💡 Emoji otomatis ditambahkan berdasarkan keyword:\n' +
+                'raja→👑 sultan→💎 pro→🔥 master→🧙 legend→⭐ dll.'
+            );
+
+            const fullTitle = CustomTitles.set(jid, m.chat, titleText, m.sender);
+
+            await m.reply(
+                `✅ *Title Berhasil Diatur!*\n\n` +
+                `👤 User: @${jid.split('@')[0]}\n` +
+                `🏅 Title: *${fullTitle}*\n\n` +
+                `_Title ini akan tampil di profil dan leaderboard grup._\n` +
+                `_Hapus dengan .deltitle @tag_`,
+                { mentions: [jid] }
+            );
+        }
+    },
+    {
+        name: 'deltitle',
+        aliases: ['removetitle', 'hapustitle'],
+        category: 'owner',
+        desc: 'Hapus custom title member',
+        usage: '(@tag/nomor)',
+        ownerOnly: true,
+        groupOnly: true,
+        noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args);
+            if (!jid) return m.reply('❌ Tag user, reply pesan, atau masukkan nomor!');
+
+            const existing = CustomTitles.get(jid, m.chat);
+            if (!existing) return m.reply(`❌ @${jid.split('@')[0]} tidak punya custom title di grup ini.`, { mentions: [jid] });
+
+            CustomTitles.remove(jid, m.chat);
+            await m.reply(
+                `✅ Title custom @${jid.split('@')[0]} telah dihapus.\n` +
+                `_Title kembali mengikuti level otomatis._`,
+                { mentions: [jid] }
+            );
+        }
+    },
+    {
+        name: 'setlevel',
+        category: 'owner',
+        desc: 'Set level member di grup',
+        usage: '(@tag/nomor) (level)',
+        ownerOnly: true,
+        groupOnly: true,
+        noLimit: true,
+        async execute({ m, args }) {
+            let jid = null;
+            let levelArg = null;
+
+            if (m.mentionedJid?.[0]) {
+                jid = m.mentionedJid[0];
+                levelArg = args.find(a => !a.startsWith('@') && /^\d+$/.test(a));
+            } else if (m.quoted?.sender) {
+                jid = m.quoted.sender;
+                levelArg = args[0];
+            } else if (args[0]) {
+                jid = parseJid(args[0]);
+                levelArg = args[1];
+            }
+
+            const level = parseInt(levelArg);
+            if (!jid) return m.reply(
+                '❌ Tag/reply user atau masukkan nomor!\n\n' +
+                '📌 Contoh:\n' +
+                '• .setlevel @tag 50\n' +
+                '• .setlevel 628xxx 100'
+            );
+            if (!level || level < 1 || level > 100) return m.reply('❌ Level harus antara 1-100!');
+
+            const newLevel = GroupLevels.setLevel(jid, m.chat, level);
+            const title = CustomTitles.get(jid, m.chat)?.title || GroupLevels.getTitle(newLevel);
+
+            await m.reply(
+                `✅ *Level Berhasil Diatur!*\n\n` +
+                `👤 User: @${jid.split('@')[0]}\n` +
+                `📈 Level: *${newLevel}*\n` +
+                `🏅 Title: *${title}*\n` +
+                `📊 EXP: 0 (direset)`,
+                { mentions: [jid] }
+            );
+        }
+    },
+    {
+        name: 'listtitle',
+        category: 'owner',
+        desc: 'Lihat semua custom title di grup',
+        ownerOnly: true,
+        groupOnly: true,
+        noLimit: true,
+        async execute({ m }) {
+            const list = CustomTitles.getByGroup(m.chat);
+            if (!list.length) return m.reply('📋 Belum ada custom title di grup ini.\n\nSet dengan .settitle @tag [title]');
+
+            let text = `🏅 *CUSTOM TITLES DI GRUP INI* (${list.length})\n\n`;
+            const mentions = [];
+            list.forEach((t, i) => {
+                text += `${i + 1}. @${t.jid.split('@')[0]}\n`;
+                text += `   🏅 ${t.title}\n`;
+                text += `   📅 Set: ${t.created_at?.split('T')[0] || '-'}\n\n`;
+                mentions.push(t.jid);
+            });
+            text += `_Hapus title: .deltitle @tag_`;
+            await m.reply(text, { mentions });
+        }
+    },
+];

@@ -125,6 +125,16 @@ async function initDatabase() {
         created_at TEXT DEFAULT (datetime('now'))
     )`);
 
+    // Custom titles (owner-assigned per user per group)
+    db.run(`CREATE TABLE IF NOT EXISTS custom_titles (
+        jid TEXT NOT NULL,
+        group_jid TEXT NOT NULL,
+        title TEXT NOT NULL,
+        set_by TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (jid, group_jid)
+    )`);
+
     saveDb();
     console.log('✅ Database initialized');
     return db;
@@ -389,9 +399,11 @@ const GroupLevels = {
             run('UPDATE group_levels SET exp = ?, level = ?, last_chat = ? WHERE jid = ? AND group_jid = ?',
                 [leftoverExp, newLevel, nowISO, jid, groupJid]);
             
-            const oldTitle = this.getTitle(data.level);
-            const newTitle = this.getTitle(newLevel);
-            const gotNewTitle = oldTitle !== newTitle;
+            // Check custom title first, otherwise use level-based title
+            const customTitle = CustomTitles.get(jid, groupJid);
+            const oldTitle = customTitle ? customTitle.title : this.getTitle(data.level);
+            const newTitle = customTitle ? customTitle.title : this.getTitle(newLevel);
+            const gotNewTitle = !customTitle && oldTitle !== newTitle;
 
             return {
                 gained: true,
@@ -400,6 +412,7 @@ const GroupLevels = {
                 newExp: leftoverExp,
                 gotNewTitle,
                 newTitle: gotNewTitle ? newTitle : null,
+                customTitle: customTitle ? customTitle.title : null,
             };
         } else {
             // Just add EXP
@@ -407,6 +420,15 @@ const GroupLevels = {
                 [newExp, nowISO, jid, groupJid]);
             return { gained: true, leveledUp: false, newExp, currentLevel: data.level };
         }
+    },
+
+    // Owner can set level directly
+    setLevel(jid, groupJid, level) {
+        const clamped = Math.max(1, Math.min(level, MAX_LEVEL));
+        this.getOrCreate(jid, groupJid);
+        run('UPDATE group_levels SET level = ?, exp = 0 WHERE jid = ? AND group_jid = ?',
+            [clamped, jid, groupJid]);
+        return clamped;
     },
 
     getLeaderboard(groupJid, limit = 10) {
@@ -424,11 +446,13 @@ const GroupLevels = {
     getProfile(jid, groupJid) {
         const data = this.getOrCreate(jid, groupJid);
         if (!data) return null;
+        const customTitle = CustomTitles.get(jid, groupJid);
         return {
             ...data,
-            title: this.getTitle(data.level),
+            title: customTitle ? customTitle.title : this.getTitle(data.level),
             expNeeded: this.getExpNeeded(data.level),
             isMaxLevel: data.level >= MAX_LEVEL,
+            hasCustomTitle: !!customTitle,
         };
     },
 
@@ -582,4 +606,101 @@ const CoOwners = {
     getAll() { return query('SELECT co.jid, co.added_by, co.created_at, u.name FROM co_owners co LEFT JOIN users u ON co.jid = u.jid'); },
 };
 
-module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, test };
+// ═══════════════════════════════════════
+//  CUSTOM TITLES (Owner-assigned)
+// ═══════════════════════════════════════
+const TITLE_EMOJI_MAP = [
+    { keywords: ['raja', 'king'],                    emoji: '👑' },
+    { keywords: ['ratu', 'queen'],                   emoji: '👸' },
+    { keywords: ['pangeran', 'prince'],              emoji: '🤴' },
+    { keywords: ['putri', 'princess'],               emoji: '👸' },
+    { keywords: ['jenderal', 'general', 'komandan'], emoji: '⚔️' },
+    { keywords: ['master', 'guru', 'sensei'],        emoji: '🧙' },
+    { keywords: ['legend', 'legendary', 'legenda'],  emoji: '⭐' },
+    { keywords: ['pro', 'expert', 'ahli'],           emoji: '🔥' },
+    { keywords: ['admin', 'moderator', 'mod'],       emoji: '🛡️' },
+    { keywords: ['sultan', 'tajir', 'rich'],         emoji: '💎' },
+    { keywords: ['god', 'dewa', 'tuhan'],            emoji: '✨' },
+    { keywords: ['warrior', 'pejuang', 'fighter'],   emoji: '⚔️' },
+    { keywords: ['vip'],                             emoji: '💠' },
+    { keywords: ['bot', 'robot'],                    emoji: '🤖' },
+    { keywords: ['naga', 'dragon'],                  emoji: '🐉' },
+    { keywords: ['iblis', 'demon', 'devil'],         emoji: '😈' },
+    { keywords: ['malaikat', 'angel'],               emoji: '😇' },
+    { keywords: ['samurai', 'ninja'],                emoji: '🥷' },
+    { keywords: ['kapten', 'captain'],               emoji: '🎖️' },
+    { keywords: ['presiden', 'president'],           emoji: '🏛️' },
+    { keywords: ['emperor', 'kaisar'],               emoji: '👑' },
+    { keywords: ['hunter', 'pemburu'],               emoji: '🏹' },
+    { keywords: ['wizard', 'penyihir', 'mage'],      emoji: '🔮' },
+    { keywords: ['knight', 'ksatria'],               emoji: '🗡️' },
+    { keywords: ['hero', 'pahlawan'],                emoji: '🦸' },
+    { keywords: ['villain', 'penjahat'],             emoji: '🦹' },
+    { keywords: ['sniper', 'tembak'],                emoji: '🎯' },
+    { keywords: ['hacker', 'coder', 'programmer'],   emoji: '💻' },
+    { keywords: ['music', 'musik', 'singer'],        emoji: '🎵' },
+    { keywords: ['chef', 'koki', 'cook'],            emoji: '👨‍🍳' },
+    { keywords: ['dokter', 'doctor', 'medic'],       emoji: '⚕️' },
+    { keywords: ['noob', 'newbie', 'pemula'],        emoji: '🐣' },
+];
+
+const CustomTitles = {
+    /**
+     * Auto-detect emoji from title text based on keywords
+     */
+    detectEmoji(titleText) {
+        const lower = titleText.toLowerCase();
+        for (const entry of TITLE_EMOJI_MAP) {
+            for (const kw of entry.keywords) {
+                if (lower.includes(kw)) return entry.emoji;
+            }
+        }
+        return '🏷️'; // default
+    },
+
+    /**
+     * Set custom title for user in group with auto-emoji
+     */
+    set(jid, groupJid, titleText, setBy) {
+        const emoji = this.detectEmoji(titleText);
+        const fullTitle = `${emoji} ${titleText}`;
+        run('INSERT OR REPLACE INTO custom_titles (jid, group_jid, title, set_by) VALUES (?, ?, ?, ?)',
+            [jid, groupJid, fullTitle, setBy]);
+        return fullTitle;
+    },
+
+    /**
+     * Get custom title for user in group
+     */
+    get(jid, groupJid) {
+        return queryOne('SELECT * FROM custom_titles WHERE jid = ? AND group_jid = ?', [jid, groupJid]);
+    },
+
+    /**
+     * Remove custom title
+     */
+    remove(jid, groupJid) {
+        run('DELETE FROM custom_titles WHERE jid = ? AND group_jid = ?', [jid, groupJid]);
+    },
+
+    /**
+     * Get all custom titles in a group
+     */
+    getByGroup(groupJid) {
+        return query(
+            `SELECT ct.jid, ct.title, ct.set_by, ct.created_at, u.name 
+             FROM custom_titles ct LEFT JOIN users u ON ct.jid = u.jid 
+             WHERE ct.group_jid = ? ORDER BY ct.created_at DESC`,
+            [groupJid]
+        );
+    },
+
+    /**
+     * Get all emoji mappings (for help display)
+     */
+    getEmojiMap() {
+        return TITLE_EMOJI_MAP;
+    }
+};
+
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, CustomTitles, test };

@@ -8,13 +8,13 @@ async function getDynamicQuestion(type, fallback) {
     try {
         let p = '';
         const seed = Math.random().toString(36).substring(2, 10); // Random string agar AI tidak cache jawaban
-        const extra = `\n(Wajib: Buat soal yang SANGAT BERBEDA dari sebelumnya. Jangan gunakan contoh pasaran. Kode seed acak untuk variasi: ${seed})`;
+        const extra = `\n(Wajib: Buat soal yang SANGAT BERBEDA dari sebelumnya. TINGKAT EXPERT/SANGAT SULIT. Gunakan konsep yang jarang diketahui orang awam. Kode seed acak: ${seed})`;
         
-        if (type === 'tebakkata') p = 'Berikan 1 soal tebak kata bahasa Indonesia TINGKAT SULIT. JSON murni tanpa awalan backtick: {"q":"pertanyaan panjang","a":"jawaban_1_kata"}' + extra;
-        else if (type === 'tebakkimia') p = 'Berikan 1 soal tebak unsur kimia (simbol/sifat) TINGKAT SULIT. JSON murni tanpa awalan backtick: {"q":"deskripsi unsur","a":"nama_unsur"}' + extra;
-        else if (type === 'caklontong') p = 'Berikan 1 tebakan logika meleset ala Cak Lontong TINGKAT SULIT. JSON murni tanpa awalan backtick: {"q":"pertanyaan","a":"jawaban"}' + extra;
-        else if (type === 'tebaknegara') p = 'Berikan 1 tebakan negara dari fakta unik/geografi TINGKAT SULIT. JSON murni tanpa awalan backtick: {"q":"pertanyaan","a":"negara"}' + extra;
-        else if (type === 'tekateki') p = 'Berikan 1 teka-teki bahasa Indonesia menjebak TINGKAT SULIT. JSON murni tanpa awalan backtick: {"q":"pertanyaan","a":"jawaban"}' + extra;
+        if (type === 'tebakkata') p = 'Berikan 1 soal tebak kata bahasa Indonesia TINGKAT EXPERT. Gunakan istilah ilmiah, filosofis, atau teknikal yang sangat jarang. JSON murni tanpa awalan backtick: {"q":"pertanyaan panjang dan detail","a":"jawaban_1_kata"}' + extra;
+        else if (type === 'tebakkimia') p = 'Berikan 1 soal tebak unsur/reaksi kimia TINGKAT EXPERT. Gunakan unsur langka, isotop, atau reaksi kompleks. JSON murni tanpa awalan backtick: {"q":"deskripsi unsur/reaksi","a":"nama_unsur"}' + extra;
+        else if (type === 'caklontong') p = 'Berikan 1 tebakan logika meleset ala Cak Lontong TINGKAT SANGAT MENJEBAK dan absurd. JSON murni tanpa awalan backtick: {"q":"pertanyaan","a":"jawaban"}' + extra;
+        else if (type === 'tebaknegara') p = 'Berikan 1 tebakan negara dari fakta SANGAT OBSCURE (bukan fakta umum). Gunakan negara kecil atau fakta geopolitik langka. JSON murni tanpa awalan backtick: {"q":"pertanyaan","a":"negara"}' + extra;
+        else if (type === 'tekateki') p = 'Berikan 1 teka-teki filosofis/logika berlapis TINGKAT EXPERT yang sangat menjebak. JSON murni tanpa awalan backtick: {"q":"pertanyaan","a":"jawaban"}' + extra;
         
         if (p) {
             let txt = '';
@@ -54,29 +54,32 @@ module.exports = [
         }
     },
     {
-        name: 'casino', category: 'games', desc: 'Main casino', usage: '(nominal)',
+        name: 'casino', category: 'games', desc: 'Main casino (x3/x10)', usage: '(nominal)',
         async execute({ m, args }) {
             const bet = parseInt(args[0]) || 100;
             const user = Users.getOrCreate(m.sender, m.pushName);
             if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
             if (bet < 100) return m.reply('❌ Minimal bet 100!');
+            if (bet > 50000) return m.reply('❌ Maksimal bet 50.000!');
 
             const roll = Math.random();
-            // 10% jackpot → +2x modal | 35% menang → +1x modal | 55% kalah → -1x modal
-            if (roll < 0.10) {
-                const jackpotWin = bet * 2;
+            // 3% jackpot → +10x modal | 25% menang → +3x modal | 72% kalah → -1x modal
+            if (roll < 0.03) {
+                const jackpotWin = bet * 10;
                 Users.addBalance(m.sender, jackpotWin);
                 Transactions.create(m.sender, 'casino_jackpot', jackpotWin, 'Casino');
-                Achievements.grant(m.sender, 'casino_jackpot'); // 🏅 Badge Penjudi Ulung
-                await m.reply(`🎰 *CASINO*\n\n🎊🎊 *JACKPOT!!!* 🎊🎊\n\n🍀 Selamat! Kamu mendapatkan JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(2x modal!)*\n📊 Modal: ${formatNumber(bet)}\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
-            } else if (roll < 0.45) {
-                Users.addBalance(m.sender, bet);
-                Transactions.create(m.sender, 'casino_win', bet, 'Casino');
-                await m.reply(`🎰 *CASINO*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(bet)} balance\n📊 Modal: ${formatNumber(bet)}`);
+                Achievements.grant(m.sender, 'casino_jackpot');
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(10x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: 3%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
+            } else if (roll < 0.28) {
+                const winAmount = bet * 3;
+                Users.addBalance(m.sender, winAmount);
+                Transactions.create(m.sender, 'casino_win', winAmount, 'Casino');
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(winAmount)} balance *(3x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: 25%`);
             } else {
                 Users.addBalance(m.sender, -bet);
                 Transactions.create(m.sender, 'casino_lose', -bet, 'Casino');
-                await m.reply(`🎰 *CASINO*\n\n😢 Kamu KALAH!\n💸 -${formatNumber(bet)} balance\n📊 Modal: ${formatNumber(bet)}`);
+                const taunt = pickRandom(['Nasib...', 'Coba lagi!', 'Mungkin besok hoki~', 'Sabar ya...', 'Belum rezeki!']);
+                await m.reply(`🎰 *CASINO ROYALE*\n\n😢 Kamu KALAH!\n💸 -${formatNumber(bet)} balance\n📊 Modal: ${formatNumber(bet)}\n\n_${taunt}_`);
             }
         }
     },
@@ -332,31 +335,21 @@ module.exports = [
             await m.reply('⏳ _Mengenerate soal baru..._');
 
             const fallbacks = [
-                // Sains & Biologi Lanjut
-                { q: 'Proses dimana ribosom membaca mRNA untuk menyintesis rantai polipeptida disebut', a: 'translasi' },
-                { q: 'Fenomena optik ketika cahaya melewati celah sempit dan menghasilkan pola gelap terang selang-seling', a: 'difraksi' },
-                { q: 'Cabang matematika yang mempelajari hubungan antara sudut dan sisi segitiga', a: 'trigonometri' },
-                { q: 'Proses pembelahan sel yang menghasilkan empat sel anak dengan jumlah kromosom setengahnya', a: 'meiosis' },
-                { q: 'Zat kimia yang dilepaskan neuron untuk menyampaikan sinyal ke sel saraf lain di sinapsis', a: 'neurotransmiter' },
-                { q: 'Lapisan atmosfer bumi tempat sebagian besar ozon terkonsentrasi, melindungi dari radiasi UV', a: 'stratosfer' },
-                { q: 'Reaksi kimia yang menyerap kalor dari lingkungan sehingga suhu sistem turun', a: 'endoterm' },
-                { q: 'Pori-pori kecil pada permukaan daun yang berfungsi sebagai tempat pertukaran gas', a: 'stomata' },
-                // Sejarah & Geografi
-                { q: 'Perjanjian yang mengakhiri Perang Dunia Pertama, ditandatangani di istana yang sama namanya', a: 'versailles' },
-                { q: 'Kota purba di Yordania yang sepenuhnya dipahat dari tebing batu berwarna merah muda', a: 'petra' },
-                { q: 'Nama operasi militer besar Sekutu saat mendarat di Normandia pada 6 Juni 1944', a: 'overlord' },
-                { q: 'Dinasti yang memerintah Mesir Kuno selama ribuan tahun dan membangun piramida', a: 'firaun' },
-                // Bahasa & Linguistik
-                { q: 'Ilmu yang mempelajari perubahan makna kata dan hubungan makna dalam suatu bahasa', a: 'semantik' },
-                { q: 'Gaya bahasa yang melebih-lebihkan kenyataan untuk menciptakan efek dramatis atau humor', a: 'hiperbola' },
-                { q: 'Kata yang maknanya berlawanan dengan kata lain disebut memiliki hubungan', a: 'antonim' },
-                // Filsafat & Ekonomi
-                { q: 'Nilai dari pilihan terbaik yang dikorbankan saat kamu memilih satu opsi dari banyak pilihan', a: 'biayapeluang' },
-                { q: 'Filsuf Yunani yang menulis Republic dan murid langsung Sokrates', a: 'plato' },
-                { q: 'Prinsip fisika kuantum yang menyatakan posisi dan momentum partikel tidak bisa diukur bersamaan secara presisi', a: 'ketidakpastian' },
-                // Teknologi & Astronomi
-                { q: 'Bintang yang meledak dengan sangat terang di akhir siklus hidupnya, bisa sesaat lebih terang dari galaksi', a: 'supernova' },
-                { q: 'Titik di alam semesta dengan gravitasi begitu kuat sehingga cahaya pun tidak bisa lolos', a: 'lubbanghitam' },
+                { q: 'Fenomena psikologis di mana korban penculikan justru mengembangkan ikatan emosional positif terhadap penculiknya', a: 'stockholm' },
+                { q: 'Prinsip dalam fisika kuantum yang menyatakan bahwa mengamati partikel akan mengubah perilakunya secara fundamental', a: 'ketidakpastian' },
+                { q: 'Istilah untuk bias kognitif di mana seseorang menilai sesuatu berdasarkan kesan pertama yang tidak relevan', a: 'anchoring' },
+                { q: 'Proses biologis di mana sel secara terprogram menghancurkan dirinya sendiri untuk kepentingan organisme', a: 'apoptosis' },
+                { q: 'Cabang filsafat yang mempertanyakan hakikat keberadaan, realitas, dan makna ada', a: 'ontologi' },
+                { q: 'Fenomena astronomi ketika cahaya bintang membelok saat melewati medan gravitasi benda masif', a: 'lensgravitasi' },
+                { q: 'Istilah linguistik untuk kata yang memiliki bunyi mirip di berbagai bahasa karena asal usul yang sama', a: 'kognat' },
+                { q: 'Teori ekonomi yang menyatakan bahwa uang beredar yang berlebihan menyebabkan inflasi', a: 'monetarisme' },
+                { q: 'Hukum termodinamika yang menyatakan bahwa entropi alam semesta selalu meningkat', a: 'entropimeningkat' },
+                { q: 'Proses di mana bakteri memperoleh gen dari lingkungan bukan dari induknya, menyebabkan resistensi antibiotik', a: 'transferhorizontal' },
+                { q: 'Paradoks logika di mana pernyataan "kalimat ini bohong" tidak bisa ditentukan benar atau salahnya', a: 'paradokspembohong' },
+                { q: 'Efek fisika di mana frekuensi gelombang berubah karena gerakan relatif sumber terhadap pengamat', a: 'doppler' },
+                { q: 'Proses geologi pembentukan pegunungan akibat tumbukan lempeng tektonik', a: 'orogenesis' },
+                { q: 'Konsep dalam psikologi Jung tentang memori kolektif bawah sadar seluruh umat manusia', a: 'arketipe' },
+                { q: 'Zat dalam otak yang mengatur siklus tidur-bangun dan diproduksi oleh kelenjar pineal', a: 'melatonin' },
             ];
 
             const w = await getDynamicQuestion('tebakkata', fallbacks);
@@ -402,16 +395,16 @@ module.exports = [
             if (global.activeGames.has(m.chat)) global.activeGames.delete(m.chat);
 
             const songs = [
-                { s: 'Kangen', a: 'dewa 19', l: 'Semua kata rindumu semakin membuatku tak berdaya...' },
-                { s: 'Dan', a: 'sheila on 7', l: 'Dan bila esok datang kembali, seperti sedia kala...' },
-                { s: 'Hampa', a: 'ari lasso', l: 'Entah di mana dirimu berada, hampa terasa hidupku tanpa dirimu...' },
-                { s: 'Pupus', a: 'dewa 19', l: 'Baru kusadari cintaku bertepuk sebelah tangan...' },
-                { s: 'Sempurna', a: 'andra and the backbone', l: 'Kau begitu sempurna, di mataku kau begitu indah...' },
-                { s: 'Menghapus Jejakmu', a: 'peterpan', l: 'Terus melangkah melupakanmu, lelah hati perhatikan sikapmu...' },
-                { s: 'Separuh Aku', a: 'noah', l: 'Dengar laraku, suara hati ini memanggil namamu...' },
-                { s: 'Kekasih Bayangan', a: 'cakra khan', l: 'Padamu pemilik hati yang tak pernah kumiliki...' },
-                { s: 'Surat Cinta Untuk Starla', a: 'virgoun', l: 'Kutuliskan kenangan tentang caraku menemukan dirimu...' },
-                { s: 'Akad', a: 'payung teduh', l: 'Bila nanti saatnya tlah tiba, kuingin kau menjadi istriku...' }
+                { s: 'Bento', a: 'iwan fals', l: 'Bento sudah jadi bos besar, banyak uang dan harta berlimpah...' },
+                { s: 'Kerispatih', a: 'kerispatih', l: 'Aku yang tak berharga lagi di matamu, aku yang selalu kau buang...' },
+                { s: 'Bimbang', a: 'melly goeslaw', l: 'Antara ya atau tidak, antara benci atau cinta...' },
+                { s: 'Kisah Cintaku', a: 'peterpan', l: 'Berjalan di keheningan malam yang dingin tak berbintang...' },
+                { s: 'Kasih Putih', a: 'glenn fredly', l: 'Kasih putih yang selalu hadir bersama diriku...' },
+                { s: 'Berita Kepada Kawan', a: 'ebiet g ade', l: 'Perjalanan ini terasa sangat melelahkan...' },
+                { s: 'Bila Rasaku Ini Rasamu', a: 'kerispatih', l: 'Apakah yang telah kau lakukan terhadap diriku...' },
+                { s: 'Terlalu Manis', a: 'slank', l: 'Terlalu manis kau merasa paling manis di dunia...' },
+                { s: 'Pelangi Di Matamu', a: 'jamrud', l: 'Biarkan ku menatap matamu, ada pelangi di matamu...' },
+                { s: 'Roman Picisan', a: 'dewa 19', l: 'Hati-hati saat kau mencintai seseorang dengan sepenuh hati...' }
             ];
             const song = pickRandom(songs);
             const hint = song.s[0] + '_'.repeat(song.s.length - 2) + song.s[song.s.length - 1];
@@ -447,16 +440,16 @@ module.exports = [
         async execute({ m }) {
             await m.reply('⏳ _Mengenerate soal AI..._');
             const fallbacks = [
-                {q:'Unsur logam berwujud cair pada suhu ruang',a:'Raksa'},
-                {q:'Gas mulia yang sering digunakan pada lampu neon berwarna merah',a:'Neon'},
-                {q:'Unsur radioaktif yang ditemukan oleh ilmuwan Marie Curie',a:'Radium'},
-                {q:'Unsur dengan simbol W yang memiliki titik leleh sangat tinggi',a:'Tungsten'},
-                {q:'Unsur penyusun utama tulang belulang dan gigi',a:'Kalsium'},
-                {q:'Unsur non-logam yang paling melimpah di kerak bumi',a:'Oksigen'},
-                {q:'Gas yang sangat ringan dan mudah terbakar, digunakan pada balon udara awal',a:'Hidrogen'},
-                {q:'Unsur yang digunakan sebagai bahan baku utama pembuatan mikrochip',a:'Silikon'},
-                {q:'Logam berharga yang tidak dapat berkarat dan digunakan sebagai standar moneter',a:'Emas'},
-                {q:'Unsur halogen yang ditambahkan ke pasta gigi untuk mencegah gigi berlubang',a:'Fluor'}
+                {q:'Unsur radioaktif dengan waktu paruh terpendek di antara halogen, hanya ditemukan dari peluruhan unsur lain',a:'Astatin'},
+                {q:'Logam transisi dengan simbol Tc yang tidak memiliki isotop stabil dan pertama kali dibuat secara sintetis',a:'Teknesium'},
+                {q:'Unsur aktinida yang digunakan sebagai bahan bakar reaktor nuklir breeder, simbol Pu',a:'Plutonium'},
+                {q:'Gas mulia terberat yang terjadi secara alami, bersifat radioaktif dan menjadi penyebab kanker paru-paru',a:'Radon'},
+                {q:'Unsur lantanida yang digunakan dalam magnet permanen terkuat di dunia (NdFeB)',a:'Neodimium'},
+                {q:'Logam terberat yang stabil, memiliki simbol Bi dan isotop 209 yang sangat panjang waktu paruhnya',a:'Bismut'},
+                {q:'Unsur dengan nomor atom 76, logam terpadat yang dikenal manusia',a:'Osmium'},
+                {q:'Unsur yang dinamai dari nama planet, ditemukan tahun 1789, digunakan di PLTN, simbol U',a:'Uranium'},
+                {q:'Unsur non-logam yang paling elektronegatif di tabel periodik menurut skala Pauling',a:'Fluor'},
+                {q:'Logam alkali tanah yang terbakar dengan nyala hijau terang dan digunakan dalam kembang api',a:'Barium'},
             ];
             const e = await getDynamicQuestion('tebakkimia', fallbacks);
             
@@ -474,16 +467,16 @@ module.exports = [
         async execute({ m }) {
             await m.reply('⏳ _Mengenerate soal AI..._');
             const fallbacks = [
-                {q:'Mawar melati semuanya...',a:'Bunga'},
-                {q:'Yang sering mendapat nilai 100 saat ulangan',a:'Kertas'},
-                {q:'Hewan yang memakan rumput',a:'Lapar'},
-                {q:'Kalau haus minum...',a:'Masuk'},
-                {q:'Orang yang berenang di laut pakai',a:'Celana'},
-                {q:'Rendang adalah makanan khas',a:'Enak'},
-                {q:'Kucing mengeong saat...',a:'Bisa'},
-                {q:'Bumi berputar pada...',a:'Sini'},
-                {q:'Supaya bersih kita harus...',a:'Sadar'},
-                {q:'Candi Borobudur ada di...',a:'Sana'}
+                {q:'Semakin dipukul semakin diam, semakin dicium semakin keras...',a:'Kentongan'},
+                {q:'Dokter gigi biasanya pulang kerja bawa...',a:'Payung'},
+                {q:'Ikan yang paling ditakuti nelayan...',a:'Ikan mas'},
+                {q:'Kalo orang pintar makan di...',a:'Mulut'},
+                {q:'Tempat parkir yang paling ramai di Indonesia...',a:'Indonesia'},
+                {q:'Guru yang tidak pernah marah...',a:'Gurita'},
+                {q:'Orang yang tidak pernah mandi tapi selalu bersih...',a:'Bayi belum lahir'},
+                {q:'Motor yang paling lambat di dunia...',a:'Motorola'},
+                {q:'Buah yang selalu dihitung orang...',a:'Buah pikiran'},
+                {q:'Sayur yang paling ditakuti penjahat...',a:'Sayur bayam'}
             ];
             const q = await getDynamicQuestion('caklontong', fallbacks);
             
@@ -562,16 +555,16 @@ module.exports = [
         async execute({ m }) {
             await m.reply('⏳ _Mengenerate soal AI..._');
             const fallbacks = [
-                {q:'Negara dengan julukan Zamrud Khatulistiwa',a:'Indonesia'},
-                {q:'Negara di Amerika Selatan yang memiliki reruntuhan kota Inca Machu Picchu',a:'Peru'},
-                {q:'Negara kota merdeka yang merupakan enklave terkecil di dunia',a:'Vatikan'},
-                {q:'Negara di benua Afrika yang tidak pernah dijajah oleh bangsa Eropa',a:'Ethiopia'},
-                {q:'Negara yang memiliki danau air tawar terdalam di dunia (Danau Baikal)',a:'Rusia'},
-                {q:'Negara di Timur Tengah tempat Petra yang bersejarah berada',a:'Yordania'},
-                {q:'Negara kepulauan di Samudra Hindia dengan ibu kota Malé',a:'Maladewa'},
-                {q:'Satu-satunya negara yang menempati seluruh benua',a:'Australia'},
-                {q:'Negara Nordik yang terkenal dengan fenomena matahari tengah malam dan aurora borealis',a:'Norwegia'},
-                {q:'Negara dengan garis pantai terpanjang di dunia',a:'Kanada'}
+                {q:'Negara di Afrika yang pernah dikenal sebagai Abyssinia dan memiliki kalender sendiri dengan 13 bulan',a:'Ethiopia'},
+                {q:'Negara kepulauan terkecil di dunia berdasarkan luas daratan, terletak di Samudra Pasifik',a:'Nauru'},
+                {q:'Negara di Asia Tengah yang pernah berganti nama ibu kotanya dari Astana ke Nur-Sultan lalu kembali ke Astana',a:'Kazakhstan'},
+                {q:'Negara di Eropa yang tidak memiliki bandara dan merupakan salah satu mikrostate tertua di dunia',a:'San Marino'},
+                {q:'Negara di Afrika Barat yang namanya berasal dari sungai, dan pernah menjadi pusat Kerajaan Mali',a:'Mali'},
+                {q:'Negara pegunungan di Asia Selatan yang mengukur kebahagiaan nasional bruto alih-alih PDB',a:'Bhutan'},
+                {q:'Negara di Eropa Timur yang memiliki wilayah separatis Transnistria yang tidak diakui internasional',a:'Moldova'},
+                {q:'Negara di Karibia yang merupakan pulau terbesar dan satu-satunya negara sosialis di belahan bumi barat',a:'Kuba'},
+                {q:'Negara di Afrika Timur yang terkurung daratan dan pernah menjadi kerajaan Abyssinia',a:'Lesotho'},
+                {q:'Negara di Asia Tenggara yang baru merdeka tahun 2002 dan menjadi negara termuda di Asia',a:'Timor Leste'}
             ];
             const c = await getDynamicQuestion('tebaknegara', fallbacks);
             
@@ -591,16 +584,16 @@ module.exports = [
             if (global.activeGames.has(m.chat)) global.activeGames.delete(m.chat);
 
             const objects = [
-                { o: 'Televisi', d: 'Benda elektronik berbentuk kotak, ada layarnya, memancarkan gambar bergerak dan suara.' },
-                { o: 'Sepeda', d: 'Kendaraan roda dua yang digerakkan dengan cara dikayuh menggunakan kaki.' },
-                { o: 'Kacamata', d: 'Dipakai di wajah, memiliki dua lensa, membantu orang melihat lebih jelas.' },
-                { o: 'Payung', d: 'Terbuat dari kain kedap air yang bisa dilipat, dipakai saat hujan agar tidak basah.' },
-                { o: 'Sepatu', d: 'Alas kaki tertutup yang melindungi kaki hingga mata kaki, biasanya ada talinya.' },
-                { o: 'Buku', d: 'Kumpulan kertas berjilid yang berisi tulisan atau gambar untuk dibaca.' },
-                { o: 'Gitar', d: 'Alat musik petik yang memiliki senar, umumnya berjumlah enam senar.' },
-                { o: 'Kulkas', d: 'Mesin pendingin berbentuk lemari besar untuk mengawetkan makanan dan minuman.' },
-                { o: 'Jam Tangan', d: 'Alat penunjuk waktu berukuran kecil yang dilingkarkan di pergelangan tangan.' },
-                { o: 'Kamera', d: 'Alat yang digunakan untuk memotret atau merekam kejadian dalam bentuk visual.' }
+                { o: 'Astrolabe', d: 'Instrumen kuno berbentuk cakram logam berlubang yang digunakan astronom untuk mengukur posisi bintang.' },
+                { o: 'Sextant', d: 'Alat navigasi pelaut yang mengukur sudut antara cakrawala dan benda langit untuk menentukan posisi.' },
+                { o: 'Fonograf', d: 'Alat pemutar musik era Victoria yang menggunakan jarum pada piringan berlekuk untuk menghasilkan suara.' },
+                { o: 'Barometer', d: 'Instrumen ilmiah yang mengukur tekanan atmosfer untuk memprediksi cuaca.' },
+                { o: 'Periskop', d: 'Alat optik berbentuk tabung dengan cermin yang memungkinkan pengamatan objek di atas penghalang.' },
+                { o: 'Sundial', d: 'Alat penunjuk waktu tertua yang menggunakan bayangan dari sinar matahari pada permukaan bertanda.' },
+                { o: 'Katrol', d: 'Alat mekanis berupa roda berisi tali yang mengubah arah gaya untuk mengangkat beban berat.' },
+                { o: 'Telegraf', d: 'Alat komunikasi jarak jauh yang mengirim pesan menggunakan sinyal listrik dalam kode titik dan garis.' },
+                { o: 'Kompas', d: 'Instrumen navigasi berisi jarum magnetik yang selalu menunjuk ke arah utara bumi.' },
+                { o: 'Gyroscope', d: 'Roda berputar cepat pada poros yang mempertahankan orientasinya terlepas dari gerakan wadahnya.' }
             ];
             const obj = pickRandom(objects);
             const hint = obj.o[0] + '_'.repeat(obj.o.length - 2) + obj.o[obj.o.length - 1];
@@ -638,18 +631,18 @@ module.exports = [
             if (global.activeGames.has(m.chat)) global.activeGames.delete(m.chat);
 
             const flags = [
-                {e:'🇯🇵',a:'jepang'}, {e:'🇮🇩',a:'indonesia'}, {e:'🇺🇸',a:'amerika serikat'},
-                {e:'🇬🇧',a:'inggris'}, {e:'🇫🇷',a:'prancis'}, {e:'🇩🇪',a:'jerman'},
-                {e:'🇧🇷',a:'brasil'}, {e:'🇮🇳',a:'india'}, {e:'🇨🇳',a:'china'},
-                {e:'🇰🇷',a:'korea selatan'}, {e:'🇦🇺',a:'australia'}, {e:'🇨🇦',a:'kanada'},
-                {e:'🇮🇹',a:'italia'}, {e:'🇪🇸',a:'spanyol'}, {e:'🇲🇽',a:'meksiko'},
-                {e:'🇷🇺',a:'rusia'}, {e:'🇸🇦',a:'arab saudi'}, {e:'🇹🇷',a:'turki'},
-                {e:'🇳🇱',a:'belanda'}, {e:'🇵🇹',a:'portugis'}, {e:'🇸🇬',a:'singapura'},
-                {e:'🇲🇾',a:'malaysia'}, {e:'🇹🇭',a:'thailand'}, {e:'🇵🇭',a:'filipina'},
-                {e:'🇻🇳',a:'vietnam'}, {e:'🇪🇬',a:'mesir'}, {e:'🇿🇦',a:'afrika selatan'},
-                {e:'🇦🇷',a:'argentina'}, {e:'🇨🇱',a:'chile'}, {e:'🇵🇰',a:'pakistan'},
-                {e:'🇧🇩',a:'bangladesh'}, {e:'🇳🇬',a:'nigeria'}, {e:'🇺🇦',a:'ukraina'},
-                {e:'🇵🇱',a:'polandia'}, {e:'🇸🇪',a:'swedia'}, {e:'🇳🇴',a:'norwegia'},
+                {e:'🇧🇹',a:'bhutan'}, {e:'🇱🇸',a:'lesotho'}, {e:'🇲🇳',a:'mongolia'},
+                {e:'🇲🇩',a:'moldova'}, {e:'🇬🇪',a:'georgia'}, {e:'🇦🇲',a:'armenia'},
+                {e:'🇦🇿',a:'azerbaijan'}, {e:'🇰🇬',a:'kirgizstan'}, {e:'🇹🇯',a:'tajikistan'},
+                {e:'🇹🇲',a:'turkmenistan'}, {e:'🇺🇿',a:'uzbekistan'}, {e:'🇲🇲',a:'myanmar'},
+                {e:'🇱🇦',a:'laos'}, {e:'🇰🇭',a:'kamboja'}, {e:'🇧🇳',a:'brunei'},
+                {e:'🇲🇻',a:'maladewa'}, {e:'🇳🇵',a:'nepal'}, {e:'🇱🇰',a:'sri lanka'},
+                {e:'🇧🇼',a:'botswana'}, {e:'🇿🇲',a:'zambia'}, {e:'🇿🇼',a:'zimbabwe'},
+                {e:'🇲🇿',a:'mozambik'}, {e:'🇲🇬',a:'madagaskar'}, {e:'🇸🇳',a:'senegal'},
+                {e:'🇬🇭',a:'ghana'}, {e:'🇨🇮',a:'pantai gading'}, {e:'🇨🇲',a:'kamerun'},
+                {e:'🇧🇴',a:'bolivia'}, {e:'🇵🇾',a:'paraguay'}, {e:'🇺🇾',a:'uruguay'},
+                {e:'🇪🇨',a:'ekuador'}, {e:'🇭🇳',a:'honduras'}, {e:'🇬🇹',a:'guatemala'},
+                {e:'🇵🇦',a:'panama'}, {e:'🇯🇲',a:'jamaika'}, {e:'🇮🇸',a:'islandia'},
             ];
             const f = pickRandom(flags);
             const hint = f.a[0] + '_'.repeat(f.a.replace(/\s/g,'').length - 2) + f.a[f.a.length - 1];
@@ -686,10 +679,11 @@ module.exports = [
             if (global.activeGames.has(m.chat)) global.activeGames.delete(m.chat);
 
             const words = [
-                'KONSTITUSIONAL','KAPITALISME','INFRASTRUKTUR','KOMPREHENSIF','TERTANGGUNG',
-                'DIFERENSIASI','KARAKTERISTIK','TRANSFORMASI','INTERNASIONAL','METAMORFOSIS',
-                'BERKELANJUTAN','KESEIMBANGAN','PEMBANGUNAN','PENGEMBANGAN','PERTUMBUHAN',
-                'KOMUNIKASI','KEBIJAKSANAAN','PENGETAHUAN','KEMERDEKAAN','PERSATUAN'
+                'KONSTITUSIONALISME','DEINDUSTRIALISASI','KETIDAKBERPIHAKAN','DESENTRALISASI',
+                'KONTRAPRODUKTIF','KETIDAKSEIMBANGAN','BIOKOMPATIBILITAS','ELEKTROMAGNETISME',
+                'KETIDAKBERDAYAAN','KONTRAKONTRAKTUAL','DEOKSIMARGARINAT','POLISAKARIDA',
+                'TERKONSTITUSIONAL','KETIDAKKONSISTENAN','BIOGEOKIMIA','PALEONTOLOGI',
+                'KETIDAKTERATURAN','ULTRAVIOLET','FOTOSINTESIS','ANTIKONSTITUSIONAL'
             ];
             const w = pickRandom(words);
             let shuffled;
@@ -807,16 +801,16 @@ module.exports = [
         async execute({ m }) {
             await m.reply('⏳ _Mengenerate soal AI..._');
             const fallbacks = [
-                {q:'Punya banyak gigi tapi tidak bisa menggigit, apa itu?',a:'Sisir'},
-                {q:'Punya mata tapi tidak bisa melihat, apakah itu?',a:'Jarum'},
-                {q:'Bisa dipegang tapi tidak bisa disentuh secara fisik, apa itu?',a:'Janji'},
-                {q:'Selalu berjalan ke depan dan tidak pernah bisa mundur, apakah itu?',a:'Waktu'},
-                {q:'Benda apa yang kalau dibalik semakin besar?',a:'Angka sembilan'},
-                {q:'Aku bisa menangis tanpa mata dan terbang tanpa sayap. Siapakah aku?',a:'Awan'},
-                {q:'Milikmu tapi lebih sering digunakan oleh orang lain, apakah itu?',a:'Nama'},
-                {q:'Semakin banyak yang ada, semakin sedikit yang bisa kamu lihat, apakah itu?',a:'Kegelapan'},
-                {q:'Benda apa yang harus dipecahkan sebelum bisa digunakan?',a:'Telur'},
-                {q:'Kamu masuk melalui satu lubang, dan keluar melalui dua lubang. Apa itu?',a:'Celana'}
+                {q:'Aku hidup ketika aku dimakan, dan mati ketika aku diberi minum. Siapakah aku?',a:'Api'},
+                {q:'Aku punya kota tapi tidak ada bangunan, punya hutan tapi tidak ada pohon, punya air tapi tidak ada ikan',a:'Peta'},
+                {q:'Semakin kamu ambil dariku, semakin besar aku. Tapi jika kamu tambahkan, aku malah mengecil',a:'Lubang'},
+                {q:'Aku bisa terbang tanpa sayap, menangis tanpa mata, dan ke mana pun aku pergi kegelapan mengikuti',a:'Awan'},
+                {q:'Yang membuatku tidak pernah memakainya, yang memakainya tidak pernah melihatnya, yang melihatnya tidak pernah menginginkannya',a:'Peti mati'},
+                {q:'Aku selalu ada di depanmu tapi tidak pernah bisa kau lihat',a:'Masa depan'},
+                {q:'Makin panjang makin pendek, makin pendek makin panjang. Apa itu?',a:'Umur'},
+                {q:'Aku punya leher tapi tidak punya kepala, punya badan tapi tidak punya kaki',a:'Botol'},
+                {q:'Orang kaya membutuhkan aku, orang miskin punya banyak aku, jika kamu makan aku kamu mati',a:'Tidak ada'},
+                {q:'Aku mengikutimu ke mana-mana di siang hari tapi menghilang di malam hari tanpa jejak',a:'Bayangan'}
             ];
             const r = await getDynamicQuestion('tekateki', fallbacks);
             

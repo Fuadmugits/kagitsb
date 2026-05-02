@@ -95,6 +95,41 @@ module.exports = [
         }
     },
     {
+        name: 'topbalance', aliases: ['topbal', 'topkaya', 'richest'], category: 'fun', desc: 'Lihat top balance di grup ini',
+        groupOnly: true,
+        async execute({ sock, m }) {
+            const groupMeta = await sock.groupMetadata(m.chat);
+            const memberJids = groupMeta.participants.map(p => p.id);
+
+            // Get balance for each group member
+            const members = memberJids.map(jid => {
+                const u = Users.get(jid);
+                return u ? { jid, name: u.name || 'Unknown', balance: u.balance || 0 } : null;
+            }).filter(Boolean).filter(u => u.balance > 0);
+
+            members.sort((a, b) => b.balance - a.balance);
+            const top = members.slice(0, 10);
+
+            if (!top.length) return m.reply('❌ Belum ada member dengan balance di grup ini.');
+
+            const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+
+            let text = `╭───「 💰 *TOP BALANCE GRUP* 」───╮\n│\n`;
+            const mentions = [];
+
+            top.forEach((u, i) => {
+                text += `│ ${medals[i]} *${u.name}*\n`;
+                text += `│    💰 Rp ${formatNumber(u.balance)}\n│\n`;
+                mentions.push(u.jid);
+            });
+
+            text += `╰─── _Ranking balance grup ini_ ───╯\n\n`;
+            text += `_Main game & daily claim untuk naikkan balance!_`;
+
+            await sock.sendMessage(m.chat, { text, mentions }, { quoted: m.raw });
+        }
+    },
+    {
         name: 'titlelist', aliases: ['titles', 'gelar'], category: 'fun', desc: 'Lihat daftar semua title level',
         async execute({ sock, m }) {
             let text = `╭───「 🏅 *DAFTAR TITLE* 」───╮\n│\n`;
