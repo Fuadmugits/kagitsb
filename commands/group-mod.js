@@ -69,5 +69,39 @@ module.exports = [
             Settings.set(`goodbyemsg_${m.chat}`, text);
             await m.reply('✅ Pesan selamat tinggal berhasil diubah!');
         }
+    },
+    {
+        name: 'leveling', category: 'group', desc: 'Toggle sistem leveling di grup', usage: 'on/off',
+        groupOnly: true, adminOnly: true,
+        async execute({ m, args }) {
+            const mode = args[0]?.toLowerCase();
+            if (mode === 'on') {
+                Settings.set(`leveling_${m.chat}`, 'true');
+                await m.reply('✅ *Leveling diaktifkan!*\nMember akan mendapatkan EXP dari setiap pesan.');
+            } else if (mode === 'off') {
+                Settings.set(`leveling_${m.chat}`, 'false');
+                await m.reply('❌ *Leveling dinonaktifkan!*\nMember tidak akan mendapatkan EXP di grup ini.');
+            } else {
+                const current = Settings.get(`leveling_${m.chat}`) !== 'false' ? 'ON' : 'OFF';
+                await m.reply(`📈 Status Leveling: *${current}*\nGunakan .leveling on/off`);
+            }
+        }
+    },
+    {
+        name: 'game', category: 'group', desc: 'Toggle fitur games di grup', usage: 'on/off',
+        groupOnly: true, adminOnly: true,
+        async execute({ m, args }) {
+            const mode = args[0]?.toLowerCase();
+            if (mode === 'on') {
+                Settings.set(`game_${m.chat}`, 'true');
+                await m.reply('✅ *Games diaktifkan!*\nSemua fitur game bisa dipakai di grup ini.');
+            } else if (mode === 'off') {
+                Settings.set(`game_${m.chat}`, 'false');
+                await m.reply('❌ *Games dinonaktifkan!*\nFitur game tidak bisa dipakai di grup ini.');
+            } else {
+                const current = Settings.get(`game_${m.chat}`) !== 'false' ? 'ON' : 'OFF';
+                await m.reply(`🎮 Status Games: *${current}*\nGunakan .game on/off`);
+            }
+        }
     }
 ];
