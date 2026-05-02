@@ -82,7 +82,7 @@ module.exports = [
                 Settings.set(`leveling_${m.chat}`, 'false');
                 await m.reply('❌ *Leveling dinonaktifkan!*\nMember tidak akan mendapatkan EXP di grup ini.');
             } else {
-                const current = Settings.get(`leveling_${m.chat}`) !== 'false' ? 'ON' : 'OFF';
+                const current = Settings.get(`leveling_${m.chat}`) === 'true' ? 'ON' : 'OFF';
                 await m.reply(`📈 Status Leveling: *${current}*\nGunakan .leveling on/off`);
             }
         }
@@ -99,7 +99,7 @@ module.exports = [
                 Settings.set(`game_${m.chat}`, 'false');
                 await m.reply('❌ *Games dinonaktifkan!*\nFitur game tidak bisa dipakai di grup ini.');
             } else {
-                const current = Settings.get(`game_${m.chat}`) !== 'false' ? 'ON' : 'OFF';
+                const current = Settings.get(`game_${m.chat}`) === 'true' ? 'ON' : 'OFF';
                 await m.reply(`🎮 Status Games: *${current}*\nGunakan .game on/off`);
             }
         }
