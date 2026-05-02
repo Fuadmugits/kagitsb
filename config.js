@@ -28,10 +28,18 @@ module.exports = {
         premium_30d: 25000,
         premium_7d: 5000,
         premium_14d: 10000,
-        limit_10: 2000,
-        limit_50: 8000,
-        limit_100: 14000,
+        limit_10: 5000,
+        limit_50: 20000,
+        limit_100: 35000,
     },
+    // Global game schedule (24-hour format HH:mm)
+    gameSchedule: [
+        { time: '20:00', state: 'on' },
+        { time: '20:10', state: 'off' },
+        { time: '20:30', state: 'on' },
+        { time: '20:40', state: 'off' },
+        { time: '21:00', state: 'on' },
+    ],
     payment: {
         // Info rekening / kontak owner untuk pembelian premium dengan uang asli
         ownerWa: process.env.OWNER_NUMBER || '',   // Nomor WA owner (otomatis dari env)
