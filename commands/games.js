@@ -54,23 +54,22 @@ module.exports = [
         }
     },
     {
-        name: 'casino', category: 'games', desc: 'Main casino (x3/x10)', usage: '(nominal)',
+        name: 'casino', category: 'games', desc: 'Main casino (x3/x7)', usage: '(nominal)',
         async execute({ m, args }) {
             const bet = parseInt(args[0]) || 100;
             const user = Users.getOrCreate(m.sender, m.pushName);
             if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
             if (bet < 100) return m.reply('❌ Minimal bet 100!');
-            if (bet > 50000) return m.reply('❌ Maksimal bet 50.000!');
 
             const roll = Math.random();
-            // 3% jackpot → +10x modal | 25% menang → +3x modal | 72% kalah → -1x modal
-            if (roll < 0.03) {
-                const jackpotWin = bet * 10;
+            // 1.5% jackpot → +7x modal | 25% menang → +3x modal | 73.5% kalah → -1x modal
+            if (roll < 0.015) {
+                const jackpotWin = bet * 7;
                 Users.addBalance(m.sender, jackpotWin);
                 Transactions.create(m.sender, 'casino_jackpot', jackpotWin, 'Casino');
                 Achievements.grant(m.sender, 'casino_jackpot');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(10x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: 3%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
-            } else if (roll < 0.28) {
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(7x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: 1.5%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
+            } else if (roll < 0.265) {
                 const winAmount = bet * 3;
                 Users.addBalance(m.sender, winAmount);
                 Transactions.create(m.sender, 'casino_win', winAmount, 'Casino');
