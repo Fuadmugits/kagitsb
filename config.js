@@ -33,13 +33,16 @@ module.exports = {
         limit_100: 35000,
     },
     // Global game schedule (24-hour format HH:mm)
-    gameSchedule: [
-        { time: '20:00', state: 'on' },
-        { time: '20:10', state: 'off' },
-        { time: '20:30', state: 'on' },
-        { time: '20:40', state: 'off' },
-        { time: '21:00', state: 'on' },
-    ],
+    gameSchedule: (() => {
+        const schedule = [];
+        for (let h = 0; h < 24; h++) {
+            const hh = h.toString().padStart(2, '0');
+            schedule.push({ time: `${hh}:00`, state: 'on' });
+            schedule.push({ time: `${hh}:20`, state: 'off' });
+            schedule.push({ time: `${hh}:40`, state: 'on' });
+        }
+        return schedule;
+    })(),
     payment: {
         // Info rekening / kontak owner untuk pembelian premium dengan uang asli
         ownerWa: process.env.OWNER_NUMBER || '',   // Nomor WA owner (otomatis dari env)

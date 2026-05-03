@@ -105,9 +105,15 @@ module.exports = [
                 text += `⏳ *Jadwal Games Global:*\n`;
                 
                 if (config && config.gameSchedule && config.gameSchedule.length > 0) {
-                    config.gameSchedule.forEach(sch => {
-                        text += `▸ Jam ${sch.time} WIB - *${sch.state.toUpperCase()}*\n`;
-                    });
+                    if (config.gameSchedule.length > 10) {
+                        text += `▸ *Aktif:* Menit 00-20 & 40-60 tiap jam\n`;
+                        text += `▸ *Istirahat:* Menit 20-40 tiap jam\n`;
+                        text += `_(Berlaku 24 Jam Full)_\n`;
+                    } else {
+                        config.gameSchedule.forEach(sch => {
+                            text += `▸ Jam ${sch.time} WIB - *${sch.state.toUpperCase()}*\n`;
+                        });
+                    }
                 } else {
                     text += `_Tidak ada jadwal aktif._`;
                 }
