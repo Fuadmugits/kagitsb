@@ -122,19 +122,69 @@
     </main>
 </div>
 
-<!-- QR Code Modal -->
+<!-- Login Modal -->
 <div id="qrModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:var(--bg-secondary);padding:2rem;border-radius:12px;text-align:center;border:1px solid var(--border-color);box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-        <h2 style="margin-bottom:1rem;color:var(--text-primary);">Scan QR Code</h2>
-        <p style="color:var(--text-muted);margin-bottom:1rem;">Buka WhatsApp > Perangkat Taut > Scan</p>
-        <div style="background:white;padding:1rem;border-radius:8px;display:inline-block;">
-            <img id="qrImage" src="" alt="WhatsApp QR Code" style="width:250px;height:250px;">
+    <div style="background:var(--bg-secondary);padding:2rem;border-radius:12px;text-align:center;border:1px solid var(--border-color);box-shadow:0 10px 30px rgba(0,0,0,0.5);max-width:400px;width:100%;">
+        <div style="display:flex;gap:1rem;margin-bottom:1.5rem;justify-content:center;">
+            <button class="btn btn-primary" onclick="switchLoginMethod('qr')" id="btnQrMethod">QR Code</button>
+            <button class="btn btn-secondary" onclick="switchLoginMethod('pairing')" id="btnPairingMethod">Pairing Code</button>
         </div>
+        
+        <div id="qrSection">
+            <h2 style="margin-bottom:0.5rem;color:var(--text-primary);">Scan QR Code</h2>
+            <p style="color:var(--text-muted);margin-bottom:1rem;">Buka WhatsApp > Perangkat Tertaut > Tautkan Perangkat</p>
+            <div style="background:white;padding:1rem;border-radius:8px;display:inline-block;">
+                <img id="qrImage" src="" alt="WhatsApp QR Code" style="width:250px;height:250px;">
+            </div>
+        </div>
+
+        <div id="pairingSection" style="display:none;">
+            <h2 style="margin-bottom:0.5rem;color:var(--text-primary);">Pairing Code</h2>
+            <p style="color:var(--text-muted);margin-bottom:1rem;">Masukkan nomor WhatsApp untuk mendapatkan kode. Contoh: 628xxx</p>
+            <input type="text" id="pairingPhone" class="form-input" placeholder="628xxxxxxxxxx" style="margin-bottom:1rem;width:100%;text-align:center;">
+            <button class="btn btn-primary" onclick="requestPairingCode()" style="width:100%;margin-bottom:1rem;">Dapatkan Kode</button>
+            <div id="pairingCodeDisplay" style="display:none;background:var(--bg-tertiary);padding:1.5rem;border-radius:8px;margin-top:1rem;">
+                <p style="color:var(--text-muted);margin-bottom:0.5rem;font-size:0.9rem;">Kode Anda:</p>
+                <h1 id="thePairingCode" style="letter-spacing:5px;color:var(--text-primary);margin:0;font-family:'JetBrains Mono',monospace;">...</h1>
+                <p style="color:var(--text-muted);margin-top:1rem;font-size:0.8rem;">Masukkan kode ini di notifikasi WhatsApp Anda.</p>
+            </div>
+        </div>
+
         <div style="margin-top:1.5rem;">
             <button class="btn btn-secondary" onclick="document.getElementById('qrModal').style.display='none'">Tutup</button>
         </div>
     </div>
 </div>
+<script>
+function switchLoginMethod(method) {
+    if(method === 'qr') {
+        document.getElementById('qrSection').style.display = 'block';
+        document.getElementById('pairingSection').style.display = 'none';
+        document.getElementById('btnQrMethod').className = 'btn btn-primary';
+        document.getElementById('btnPairingMethod').className = 'btn btn-secondary';
+    } else {
+        document.getElementById('qrSection').style.display = 'none';
+        document.getElementById('pairingSection').style.display = 'block';
+        document.getElementById('btnQrMethod').className = 'btn btn-secondary';
+        document.getElementById('btnPairingMethod').className = 'btn btn-primary';
+    }
+}
+
+async function requestPairingCode() {
+    const phone = document.getElementById('pairingPhone').value;
+    if (!phone) return toast('Masukkan nomor WhatsApp!');
+    
+    try {
+        const res = await API('/api/bot/pairing', { method: 'POST', body: JSON.stringify({ phone }) });
+        if (res.error) throw new Error(res.error);
+        
+        document.getElementById('pairingCodeDisplay').style.display = 'block';
+        document.getElementById('thePairingCode').textContent = res.code;
+    } catch (e) {
+        toast(e.message || 'Gagal request pairing code');
+    }
+}
+</script>
 
 <div class="toast" id="toast"></div>
 

@@ -88,9 +88,9 @@ module.exports = [
         }
     },
     {
-        name: 'game', category: 'group', desc: 'Toggle fitur games di grup', usage: 'on/off',
+        name: 'game', aliases: ['games'], category: 'group', desc: 'Toggle fitur games di grup', usage: 'on/off',
         groupOnly: true, adminOnly: true,
-        async execute({ m, args }) {
+        async execute({ m, args, config }) {
             const mode = args[0]?.toLowerCase();
             if (mode === 'on') {
                 Settings.set(`game_${m.chat}`, 'true');
@@ -100,7 +100,19 @@ module.exports = [
                 await m.reply('❌ *Games dinonaktifkan!*\nFitur game tidak bisa dipakai di grup ini.');
             } else {
                 const current = Settings.get(`game_${m.chat}`) === 'true' ? 'ON' : 'OFF';
-                await m.reply(`🎮 Status Games: *${current}*\nGunakan .game on/off`);
+                let text = `🎮 *Status Games Grup*: *${current}*\n`;
+                text += `_Gunakan .game on/off untuk mengubah_\n\n`;
+                text += `⏳ *Jadwal Games Global:*\n`;
+                
+                if (config && config.gameSchedule && config.gameSchedule.length > 0) {
+                    config.gameSchedule.forEach(sch => {
+                        text += `▸ Jam ${sch.time} WIB - *${sch.state.toUpperCase()}*\n`;
+                    });
+                } else {
+                    text += `_Tidak ada jadwal aktif._`;
+                }
+                
+                await m.reply(text);
             }
         }
     }
