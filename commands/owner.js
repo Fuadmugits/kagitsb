@@ -1,5 +1,5 @@
 const { isOwner, formatNumber, parseJid, getNumberFromJid } = require('../lib/functions');
-const { Users, Transactions, Settings, CommandLogs, CoOwners, CustomTitles, GroupLevels } = require('../database');
+const { Users, Transactions, Settings, CommandLogs, CoOwners, CustomTitles, GroupLevels, RPG } = require('../database');
 const config = require('../config');
 const fs = require('fs');
 
@@ -447,4 +447,11 @@ module.exports = [
             await m.reply(text, { mentions });
         }
     },
+    {
+        name: 'resetrpg', category: 'owner', desc: 'Reset seluruh data RPG pemain', ownerOnly: true, noLimit: true,
+        async execute({ m }) {
+            RPG.resetRPG();
+            await m.reply('✅ *RESET BERHASIL*\n\nSeluruh data equipment, koin, base stats, dan inventory RPG semua player telah direset ke awal!');
+        }
+    }
 ];

@@ -751,6 +751,10 @@ const RPG = {
         run(`UPDATE rpg_users SET base_${statType} = base_${statType} + ? WHERE jid = ?`, [amount, jid]);
         return true;
     },
+    resetRPG() {
+        run('DELETE FROM rpg_users');
+        run('DELETE FROM rpg_inventory');
+    },
     addCoin(jid, amount) {
         this.getUser(jid); // ensure exists
         run(`UPDATE rpg_users SET rpg_coin = rpg_coin + ? WHERE jid = ?`, [amount, jid]);

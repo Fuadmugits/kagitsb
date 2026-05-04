@@ -195,18 +195,8 @@ module.exports = [
             if (stats.power < monster.powerReq) {
                 return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(stats.power)}\n🐉 Power Monster: ${formatNumber(monster.powerReq)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
             }
-            
             // Victory
-            let statDropMsg = '';
-            if (Math.random() < 0.3) {
-                const statTypes = ['power', 'defense', 'luck'];
-                const dropStat = statTypes[Math.floor(Math.random() * statTypes.length)];
-                const inc = dropStat === 'luck' ? 2 : 20;
-                RPG.upgradeBaseStat(m.sender, dropStat, inc);
-                statDropMsg = `✨ Menyerap energi monster! Base ${dropStat.toUpperCase()} +${inc}\n\n`;
-            }
-            
-            let reply = `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n${statDropMsg}`;
+            let reply = `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
             
             // Check drops
             if (Math.random() < monster.dropChance) {
@@ -314,17 +304,12 @@ module.exports = [
                 reward = 10;
                 material = '🪨 Stone';
             }
-            let statDropMsg = '';
-            if (Math.random() < 0.15) {
-                const statTypes = ['power', 'defense', 'luck'];
-                const dropStat = statTypes[Math.floor(Math.random() * statTypes.length)];
-                const inc = dropStat === 'luck' ? 1 : 10;
-                RPG.upgradeBaseStat(m.sender, dropStat, inc);
-                statDropMsg = `\n✨ Kamu menemukan pecahan kristal! Base ${dropStat.toUpperCase()} +${inc}`;
-            }
+            
+            const balReward = reward * 1000; // balance reward
             
             RPG.addCoin(m.sender, reward);
-            await m.reply(`⛏️ Kamu menambang dan mendapatkan *${material}*!\n💰 Koin RPG bertambah: 🪙 ${formatNumber(reward)}${statDropMsg}`);
+            Users.addBalance(m.sender, balReward);
+            await m.reply(`⛏️ Kamu menambang dan mendapatkan *${material}*!\n💰 Koin RPG bertambah: 🪙 ${formatNumber(reward)}\n💵 Balance bertambah: Rp ${formatNumber(balReward)}`);
         }
     },
     {
