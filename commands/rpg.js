@@ -204,14 +204,15 @@ module.exports = [
                 const item = generateItem(dropType, monster.class);
                 if (item) {
                     RPG.addInventory(m.sender, dropType, JSON.stringify(item), 1);
-                    reply += `🎁 *DROP ITEM!*\n`;
-                    reply += `🔹 Nama: ${item.name}\n`;
+                    reply += `🎁 *DROP ITEM (Masuk ke Tas)!*\n`;
+                    reply += `🔹 Item: ${item.name} (${dropType})\n`;
                     reply += `🔹 Rarity: ${item.rarity}\n`;
                     reply += `🔹 Grade: ${item.grade}\n`;
-                    reply += `🔹 Power: +${formatNumber(item.stats.power)}\n`;
-                    reply += `🔹 Def: +${formatNumber(item.stats.defense)}\n`;
-                    reply += `🔹 Luck: +${formatNumber(item.stats.luck)}\n\n`;
-                    reply += `_Cek inventory dengan .inv_`;
+                    reply += `📊 *Atribut Item Ini:*\n`;
+                    reply += `   🗡️ Power: +${formatNumber(item.stats.power)}\n`;
+                    reply += `   🛡️ Def: +${formatNumber(item.stats.defense)}\n`;
+                    reply += `   🍀 Luck: +${formatNumber(item.stats.luck)}\n\n`;
+                    reply += `_Ini bukan drop status permanen! Ini adalah status dari item/armor yang baru kamu dapat. Ketik .inv untuk melihat tas dan .equip untuk memakai item ini._`;
                 }
             } else {
                 reply += `😔 Sayang sekali, monster tidak menjatuhkan item apa-apa.`;
