@@ -3,6 +3,19 @@ const { Users, Transactions, Achievements } = require('../database');
 const config = require('../config');
 
 const activeGames = new Map();
+global.gameCooldowns = global.gameCooldowns || new Map();
+
+function checkCooldown(jid, gameType, seconds) {
+    const key = `${jid}_${gameType}`;
+    if (global.gameCooldowns.has(key)) {
+        const diff = Date.now() - global.gameCooldowns.get(key);
+        if (diff < seconds * 1000) {
+            return Math.ceil((seconds * 1000 - diff) / 1000);
+        }
+    }
+    global.gameCooldowns.set(key, Date.now());
+    return 0;
+}
 
 async function getDynamicQuestion(type, fallback) {
     try {
@@ -43,6 +56,9 @@ module.exports = [
     {
         name: 'slot', category: 'games', desc: 'Main slot machine',
         async execute({ m }) {
+            const cd = checkCooldown(m.sender, 'slot', 10);
+            if (cd > 0) return m.reply(`⏳ Sabar! Tunggu ${cd} detik lagi untuk bermain slot.`);
+            
             const { calculateTotalStats } = require('../lib/rpg');
             const stats = calculateTotalStats(m.sender);
             const luckBonus = Math.min(0.2, (stats.luck || 0) * 0.00001); // Max 20% forced win from luck
@@ -70,6 +86,9 @@ module.exports = [
     {
         name: 'casino', category: 'games', desc: 'Main casino (x3/x7/x12)', usage: '(nominal)',
         async execute({ m, args }) {
+            const cd = checkCooldown(m.sender, 'casino', 10);
+            if (cd > 0) return m.reply(`⏳ Sabar! Tunggu ${cd} detik lagi untuk bermain casino.`);
+            
             const bet = parseInt(args[0]) || 100;
             const user = Users.getOrCreate(m.sender, m.pushName);
             if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);

@@ -180,12 +180,12 @@ module.exports = [
             const monster = MONSTERS[monsterName];
             const stats = calculateTotalStats(m.sender);
             
-            // Check cooldown (5 minutes)
+            // Check cooldown (3.5 minutes)
             const userRpg = RPG.getUser(m.sender);
             if (userRpg.last_attack) {
                 const last = new Date(userRpg.last_attack).getTime();
-                if (Date.now() - last < 5 * 60 * 1000) {
-                    const sisa = Math.ceil((5 * 60 * 1000 - (Date.now() - last)) / 1000);
+                if (Date.now() - last < 3.5 * 60 * 1000) {
+                    const sisa = Math.ceil((3.5 * 60 * 1000 - (Date.now() - last)) / 1000);
                     return m.reply(`⏳ Kamu sedang istirahat. Tunggu ${sisa} detik lagi.`);
                 }
             }
@@ -279,8 +279,8 @@ module.exports = [
             const userRpg = RPG.getUser(m.sender);
             if (userRpg.last_mine) {
                 const last = new Date(userRpg.last_mine).getTime();
-                if (Date.now() - last < 2 * 60 * 1000) { // 2 mins cooldown
-                    const sisa = Math.ceil((2 * 60 * 1000 - (Date.now() - last)) / 1000);
+                if (Date.now() - last < 3 * 60 * 1000) { // 3 mins cooldown
+                    const sisa = Math.ceil((3 * 60 * 1000 - (Date.now() - last)) / 1000);
                     return m.reply(`⏳ Stamina habis! Tunggu ${sisa} detik lagi.`);
                 }
             }
@@ -475,6 +475,20 @@ module.exports = [
             
             RPG.addInventory(m.sender, itemType, JSON.stringify(newItem));
             await m.reply(`🛍️ *PEMBELIAN BERHASIL!*\n\nKamu telah membeli *${selectedItem.name}* seharga 🪙 ${selectedItem.price} Koin RPG.\nBarang sudah dimasukkan ke dalam tas (.inv).`);
+        }
+    },
+    {
+        name: 'toprpgcoin', aliases: ['toprpg'], category: 'games', desc: 'Lihat top pemain dengan koin RPG terbanyak',
+        async execute({ sock, m }) {
+            const top = RPG.getTopRPGCoin();
+            if (!top || top.length === 0) return m.reply('Belum ada pemain yang memiliki Koin RPG.');
+            let text = '╭───「 🏆 *TOP RPG COIN* 」\n';
+            top.forEach((u, i) => {
+                const badge = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🎗️';
+                text += `│ ${badge} ${u.name || 'Unknown'}\n│    └ 🪙 ${formatNumber(u.rpg_coin)}\n`;
+            });
+            text += '╰──────────────';
+            await m.reply(text);
         }
     }
 ];

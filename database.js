@@ -782,6 +782,9 @@ const RPG = {
     getCoin(jid) {
         return this.getUser(jid).rpg_coin || 0;
     },
+    getTopRPGCoin() {
+        return query('SELECT r.jid, r.rpg_coin, u.name FROM rpg_users r LEFT JOIN users u ON r.jid = u.jid ORDER BY r.rpg_coin DESC LIMIT 10');
+    },
     updateCooldown(jid, type) {
         const types = ['attack', 'mine', 'pvp'];
         if (!types.includes(type)) return false;
