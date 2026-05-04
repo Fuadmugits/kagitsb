@@ -1,5 +1,5 @@
 const { Users, GroupLevels, RPG } = require('../database');
-const { formatNumber } = require('../lib/functions');
+const { formatNumber, randomInt } = require('../lib/functions');
 const { calculateTotalStats, generateItem, MONSTERS, ITEM_TYPES, RPG_SHOP } = require('../lib/rpg');
 
 module.exports = [
