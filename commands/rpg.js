@@ -366,7 +366,15 @@ module.exports = [
             const currentStat = userRpg[`base_${stat}`] || (stat === 'luck' ? 0 : 10);
             
             // Cost calculation
-            const cost = 50000 + (currentStat * 500);
+            let cost = 0;
+            if (stat === 'power') {
+                cost = 50000 + (currentStat * 500); // Base cost
+            } else if (stat === 'luck') {
+                cost = 100000 + (currentStat * 1000); // 2x lebih mahal
+            } else if (stat === 'defense') {
+                cost = 30000 + (currentStat * 300); // Lebih murah dari power
+            }
+            
             const user = Users.getOrCreate(m.sender);
             
             if (user.balance < cost) {
