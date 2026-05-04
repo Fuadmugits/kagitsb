@@ -354,5 +354,44 @@ module.exports = [
             
             await m.reply(text);
         }
+    },
+    {
+        name: 'upgrade', category: 'games', desc: 'Upgrade stat dasar (power/defense/luck)', usage: '<stat>',
+        async execute({ sock, m, args }) {
+            const stat = args[0]?.toLowerCase();
+            const valid = ['power', 'defense', 'luck'];
+            if (!valid.includes(stat)) return m.reply('❌ Pilih stat yang ingin di-upgrade: power, defense, atau luck.\nContoh: .upgrade power');
+            
+            const userRpg = RPG.getUser(m.sender);
+            const currentStat = userRpg[`base_${stat}`] || (stat === 'luck' ? 0 : 10);
+            
+            // Cost calculation
+            const cost = 50000 + (currentStat * 500);
+            const user = Users.getOrCreate(m.sender);
+            
+            if (user.balance < cost) {
+                return m.reply(`❌ Balance kurang!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}\n\n_Semakin tinggi stat, semakin mahal biaya upgrade-nya._`);
+            }
+            
+            Users.addBalance(m.sender, -cost);
+            const inc = stat === 'luck' ? 5 : 50;
+            RPG.upgradeBaseStat(m.sender, stat, inc);
+            
+            await m.reply(`✅ *UPGRADE BERHASIL*\n\n📈 Base ${stat.toUpperCase()} meningkat (+${inc})!\n💸 Biaya: Rp ${formatNumber(cost)}\n💳 Sisa Saldo: Rp ${formatNumber(Users.get(m.sender).balance)}`);
+        }
+    },
+    {
+        name: 'monsterlist', aliases: ['monsters', 'daftarmonster'], category: 'games', desc: 'Lihat daftar monster untuk dilawan',
+        async execute({ sock, m }) {
+            let text = `╭───「 🐉 *DAFTAR MONSTER* 」\n`;
+            for (const key in MONSTERS) {
+                const mon = MONSTERS[key];
+                text += `│ 👹 *${mon.name}*\n`;
+                text += `│    └ Req Power: 🗡️ ${formatNumber(mon.powerReq)}\n`;
+                text += `│    └ Drop Chance: 🎁 ${Math.round(mon.dropChance * 100)}%\n│\n`;
+            }
+            text += `╰──────────────\n\n_Ketik .attack <nama_monster> untuk menyerang._`;
+            await m.reply(text);
+        }
     }
 ];

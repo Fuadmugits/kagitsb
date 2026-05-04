@@ -146,8 +146,15 @@ async function initDatabase() {
         shoe TEXT,
         last_attack TEXT,
         last_mine TEXT,
-        last_pvp TEXT
+        last_pvp TEXT,
+        base_power INTEGER DEFAULT 10,
+        base_defense INTEGER DEFAULT 10,
+        base_luck INTEGER DEFAULT 0
     )`);
+
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN base_power INTEGER DEFAULT 10'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN base_defense INTEGER DEFAULT 10'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN base_luck INTEGER DEFAULT 0'); } catch {}
 
     db.run(`CREATE TABLE IF NOT EXISTS rpg_inventory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -734,6 +741,12 @@ const RPG = {
         const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
         if (!slots.includes(slot)) return false;
         run(`UPDATE rpg_users SET ${slot} = ? WHERE jid = ?`, [itemDataJSON, jid]);
+        return true;
+    },
+    upgradeBaseStat(jid, statType, amount) {
+        const validStats = ['power', 'defense', 'luck'];
+        if (!validStats.includes(statType)) return false;
+        run(`UPDATE rpg_users SET base_${statType} = base_${statType} + ? WHERE jid = ?`, [amount, jid]);
         return true;
     },
     updateCooldown(jid, type) {
