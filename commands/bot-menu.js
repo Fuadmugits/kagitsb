@@ -113,6 +113,7 @@ module.exports = [
             text += `╰──────────────\n\n`;
             
             text += `╭───「 ⚔️ 𝚁𝙿𝙶 𝚂𝚃𝙰𝚃𝚂 」\n`;
+            text += `│ 🪙 Koin  : ${formatNumber(RPG.getCoin(m.sender))}\n`;
             text += `│ 🗡️ Power : ${formatNumber(stats.power)}\n`;
             text += `│ 🛡️ Def   : ${formatNumber(stats.defense)}\n`;
             text += `│ 🍀 Luck  : ${formatNumber(stats.luck)}\n`;

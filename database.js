@@ -149,12 +149,14 @@ async function initDatabase() {
         last_pvp TEXT,
         base_power INTEGER DEFAULT 10,
         base_defense INTEGER DEFAULT 10,
-        base_luck INTEGER DEFAULT 0
+        base_luck INTEGER DEFAULT 0,
+        rpg_coin INTEGER DEFAULT 0
     )`);
 
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_power INTEGER DEFAULT 10'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_defense INTEGER DEFAULT 10'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_luck INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_coin INTEGER DEFAULT 0'); } catch {}
 
     db.run(`CREATE TABLE IF NOT EXISTS rpg_inventory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -748,6 +750,13 @@ const RPG = {
         if (!validStats.includes(statType)) return false;
         run(`UPDATE rpg_users SET base_${statType} = base_${statType} + ? WHERE jid = ?`, [amount, jid]);
         return true;
+    },
+    addCoin(jid, amount) {
+        this.getUser(jid); // ensure exists
+        run(`UPDATE rpg_users SET rpg_coin = rpg_coin + ? WHERE jid = ?`, [amount, jid]);
+    },
+    getCoin(jid) {
+        return this.getUser(jid).rpg_coin || 0;
     },
     updateCooldown(jid, type) {
         const types = ['attack', 'mine', 'pvp'];

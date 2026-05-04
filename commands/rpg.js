@@ -1,6 +1,6 @@
 const { Users, GroupLevels, RPG } = require('../database');
 const { formatNumber } = require('../lib/functions');
-const { calculateTotalStats, generateItem, MONSTERS, ITEM_TYPES } = require('../lib/rpg');
+const { calculateTotalStats, generateItem, MONSTERS, ITEM_TYPES, RPG_SHOP } = require('../lib/rpg');
 
 module.exports = [
     {
@@ -293,21 +293,21 @@ module.exports = [
             let material = '';
             
             if (rand < 0.1) {
-                reward = 5000;
+                reward = 50;
                 material = '💎 Diamond';
             } else if (rand < 0.3) {
-                reward = 2000;
+                reward = 25;
                 material = '🟡 Gold';
             } else if (rand < 0.6) {
-                reward = 1000;
+                reward = 15;
                 material = '⚪ Iron';
             } else {
-                reward = 500;
+                reward = 10;
                 material = '🪨 Stone';
             }
             
-            Users.addBalance(m.sender, reward);
-            await m.reply(`⛏️ Kamu menambang dan mendapatkan *${material}*!\n💰 Balance bertambah: Rp ${formatNumber(reward)}`);
+            RPG.addCoin(m.sender, reward);
+            await m.reply(`⛏️ Kamu menambang dan mendapatkan *${material}*!\n💰 Koin RPG bertambah: 🪙 ${formatNumber(reward)}`);
         }
     },
     {
@@ -343,9 +343,9 @@ module.exports = [
             text += `🎯 *Musuh*: Power ${formatNumber(p2Stats.power)} | Def ${formatNumber(p2Stats.defense)}\n\n`;
             
             if (p1Score > p2Score) {
-                const loot = Math.floor(Math.random() * 500) + 500;
-                Users.addBalance(m.sender, loot);
-                text += `🎉 *KAMU MENANG!* 🎉\nKamu merampas Rp ${formatNumber(loot)} dari arena!`;
+                const loot = Math.floor(Math.random() * 20) + 5; // 5-25 koin
+                RPG.addCoin(m.sender, loot);
+                text += `🎉 *KAMU MENANG!* 🎉\nKamu merampas 🪙 ${formatNumber(loot)} Koin RPG dari arena!`;
             } else if (p2Score > p1Score) {
                 text += `💀 *KAMU KALAH!* 💀\nKekuatanmu belum cukup untuk mengalahkan musuh!`;
             } else {
@@ -400,6 +400,73 @@ module.exports = [
             }
             text += `╰──────────────\n\n_Ketik .attack <nama_monster> untuk menyerang._`;
             await m.reply(text);
+        }
+    },
+    {
+        name: 'buyrpgcoin', category: 'games', desc: 'Beli Koin RPG dengan Balance (1 Koin = 10.000 Balance)', usage: '<jumlah>',
+        async execute({ sock, m, args }) {
+            const amount = parseInt(args[0]);
+            if (isNaN(amount) || amount < 1) return m.reply('❌ Masukkan jumlah koin RPG yang ingin dibeli.\nContoh: .buyrpgcoin 5');
+            
+            const cost = amount * 10000;
+            const user = Users.getOrCreate(m.sender);
+            if (user.balance < cost) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+            
+            Users.addBalance(m.sender, -cost);
+            RPG.addCoin(m.sender, amount);
+            await m.reply(`✅ *PEMBELIAN BERHASIL*\n\n🪙 +${formatNumber(amount)} Koin RPG\n💸 Biaya: Rp ${formatNumber(cost)}\n💳 Sisa Saldo: Rp ${formatNumber(Users.get(m.sender).balance)}`);
+        }
+    },
+    {
+        name: 'rpgshop', category: 'games', desc: 'Lihat daftar item RPG yang bisa dibeli',
+        async execute({ sock, m }) {
+            let text = `╭───「 🏪 *RPG SHOP* 」\n`;
+            for (const category in RPG_SHOP) {
+                text += `│ 🔰 *${category.toUpperCase()}*\n`;
+                for (const item of RPG_SHOP[category]) {
+                    text += `│  └ [${item.id}] ${item.name} | 🪙 ${item.price}\n`;
+                    text += `│      (P: ${item.stats.power}, D: ${item.stats.defense}, L: ${item.stats.luck})\n`;
+                }
+                text += `│\n`;
+            }
+            text += `╰──────────────\n\n_Gunakan .buyrpg <id> untuk membeli._\n_Koin RPG kamu: 🪙 ${formatNumber(RPG.getCoin(m.sender))}_`;
+            await m.reply(text);
+        }
+    },
+    {
+        name: 'buyrpg', category: 'games', desc: 'Beli item dari RPG Shop', usage: '<id>',
+        async execute({ sock, m, args }) {
+            const id = args[0]?.toLowerCase();
+            if (!id) return m.reply('❌ Masukkan ID item!\nContoh: .buyrpg w1\n\n_Lihat daftar item di .rpgshop_');
+            
+            let selectedItem = null;
+            let itemType = '';
+            for (const category in RPG_SHOP) {
+                const found = RPG_SHOP[category].find(i => i.id.toLowerCase() === id);
+                if (found) {
+                    selectedItem = found;
+                    itemType = category;
+                    break;
+                }
+            }
+            
+            if (!selectedItem) return m.reply('❌ ID item tidak ditemukan! Cek .rpgshop');
+            
+            const coins = RPG.getCoin(m.sender);
+            if (coins < selectedItem.price) return m.reply(`❌ Koin RPG tidak cukup!\n💰 Butuh: 🪙 ${formatNumber(selectedItem.price)}\n🪙 Koinmu: ${formatNumber(coins)}`);
+            
+            RPG.addCoin(m.sender, -selectedItem.price);
+            
+            const newItem = {
+                type: itemType,
+                name: selectedItem.name,
+                rarity: selectedItem.rarity,
+                grade: selectedItem.grade,
+                stats: selectedItem.stats
+            };
+            
+            RPG.addInventory(m.sender, itemType, JSON.stringify(newItem));
+            await m.reply(`🛍️ *PEMBELIAN BERHASIL!*\n\nKamu telah membeli *${selectedItem.name}* seharga 🪙 ${selectedItem.price} Koin RPG.\nBarang sudah dimasukkan ke dalam tas (.inv).`);
         }
     }
 ];
