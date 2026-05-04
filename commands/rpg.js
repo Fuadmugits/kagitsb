@@ -331,6 +331,13 @@ module.exports = [
             if (!target) return m.reply('❌ Tag orang yang ingin dilawan!\nContoh: .pvp @user');
             if (target === m.sender) return m.reply('❌ Tidak bisa melawan diri sendiri!');
             
+            if (global.pvpChallenges && global.pvpChallenges.has(target)) {
+                return m.reply('❌ Target sedang dalam antrean tantangan PvP lain!');
+            }
+            if (global.pvpChallenges && global.pvpChallenges.has(m.sender)) {
+                return m.reply('❌ Kamu masih memiliki tantangan PvP yang belum dijawab. Tunggu atau batalkan!');
+            }
+            
             const userRpg = RPG.getUser(m.sender);
             if (userRpg.last_pvp) {
                 const last = new Date(userRpg.last_pvp).getTime();
@@ -340,10 +347,38 @@ module.exports = [
                 }
             }
             
+            global.pvpChallenges = global.pvpChallenges || new Map();
+            
+            global.pvpChallenges.set(target, {
+                challenger: m.sender,
+                timer: setTimeout(async () => {
+                    global.pvpChallenges.delete(target);
+                    await sock.sendMessage(m.key.remoteJid, { text: `⏳ Tantangan PvP dari @${m.sender.split('@')[0]} kepada @${target.split('@')[0]} hangus karena tidak ada respons.`, mentions: [m.sender, target] });
+                }, 60000)
+            });
+            
+            await sock.sendMessage(m.key.remoteJid, { text: `⚔️ @${target.split('@')[0]}, kamu ditantang PvP oleh @${m.sender.split('@')[0]}!\n\nKetik *.terimapvp* untuk bertarung atau *.tolakpvp* untuk menolak.\nWaktu: 60 detik.`, mentions: [m.sender, target] });
+        }
+    },
+    {
+        name: 'terimapvp', aliases: ['terima'], category: 'games', desc: 'Menerima tantangan PvP',
+        async execute({ sock, m, args }) {
+            if (m.command === 'terima' && args[0]?.toLowerCase() !== 'pvp') return;
+            
+            global.pvpChallenges = global.pvpChallenges || new Map();
+            const challenge = global.pvpChallenges.get(m.sender);
+            if (!challenge) return m.reply('❌ Kamu tidak memiliki tantangan PvP yang tertunda.');
+            
+            clearTimeout(challenge.timer);
+            global.pvpChallenges.delete(m.sender);
+            
+            const challenger = challenge.challenger;
+            
+            RPG.updateCooldown(challenger, 'pvp');
             RPG.updateCooldown(m.sender, 'pvp');
             
-            const p1Stats = calculateTotalStats(m.sender);
-            const p2Stats = calculateTotalStats(target);
+            const p1Stats = calculateTotalStats(challenger);
+            const p2Stats = calculateTotalStats(m.sender);
             
             // RNG factor based on Luck
             const p1LuckRoll = Math.random() * (p1Stats.luck || 1);
@@ -353,20 +388,37 @@ module.exports = [
             const p2Score = p2Stats.power + (p2Stats.defense * 0.5) + p2LuckRoll;
             
             let text = `⚔️ *PVP BATTLE* ⚔️\n\n`;
-            text += `👤 *Kamu*: Power ${formatNumber(p1Stats.power)} | Def ${formatNumber(p1Stats.defense)}\n`;
-            text += `🎯 *Musuh*: Power ${formatNumber(p2Stats.power)} | Def ${formatNumber(p2Stats.defense)}\n\n`;
+            text += `👤 *@${challenger.split('@')[0]}*: Power ${formatNumber(p1Stats.power)} | Def ${formatNumber(p1Stats.defense)}\n`;
+            text += `🎯 *@${m.sender.split('@')[0]}*: Power ${formatNumber(p2Stats.power)} | Def ${formatNumber(p2Stats.defense)}\n\n`;
             
             if (p1Score > p2Score) {
-                const loot = Math.floor(Math.random() * 20) + 5; // 5-25 koin
-                RPG.addCoin(m.sender, loot);
-                text += `🎉 *KAMU MENANG!* 🎉\nKamu merampas 🪙 ${formatNumber(loot)} Koin RPG dari arena!`;
+                const loot = Math.floor(Math.random() * 20) + 5;
+                RPG.addCoin(challenger, loot);
+                text += `🎉 *@${challenger.split('@')[0]} MENANG!* 🎉\nMerampas 🪙 ${formatNumber(loot)} Koin RPG dari arena!`;
             } else if (p2Score > p1Score) {
-                text += `💀 *KAMU KALAH!* 💀\nKekuatanmu belum cukup untuk mengalahkan musuh!`;
+                const loot = Math.floor(Math.random() * 20) + 5;
+                RPG.addCoin(m.sender, loot);
+                text += `💀 *@${challenger.split('@')[0]} KALAH!* 💀\n@${m.sender.split('@')[0]} menang dan merampas 🪙 ${formatNumber(loot)} Koin RPG!`;
             } else {
                 text += `🤝 *SERI!* 🤝\nKalian sama-sama kuat!`;
             }
             
-            await m.reply(text);
+            await sock.sendMessage(m.key.remoteJid, { text, mentions: [challenger, m.sender] });
+        }
+    },
+    {
+        name: 'tolakpvp', aliases: ['tolak'], category: 'games', desc: 'Menolak tantangan PvP',
+        async execute({ sock, m, args }) {
+            if (m.command === 'tolak' && args[0]?.toLowerCase() !== 'pvp') return;
+            
+            global.pvpChallenges = global.pvpChallenges || new Map();
+            const challenge = global.pvpChallenges.get(m.sender);
+            if (!challenge) return m.reply('❌ Kamu tidak memiliki tantangan PvP yang tertunda.');
+            
+            clearTimeout(challenge.timer);
+            global.pvpChallenges.delete(m.sender);
+            
+            await sock.sendMessage(m.key.remoteJid, { text: `🏃‍♂️ @${m.sender.split('@')[0]} menolak tantangan PvP dari @${challenge.challenger.split('@')[0]}.`, mentions: [m.sender, challenge.challenger] });
         }
     },
     {
