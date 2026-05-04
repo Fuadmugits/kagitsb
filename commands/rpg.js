@@ -211,11 +211,22 @@ module.exports = [
                     reply += `📊 *Atribut Item Ini:*\n`;
                     reply += `   🗡️ Power: +${formatNumber(item.stats.power)}\n`;
                     reply += `   🛡️ Def: +${formatNumber(item.stats.defense)}\n`;
-                    reply += `   🍀 Luck: +${formatNumber(item.stats.luck)}\n\n`;
-                    reply += `_Ini bukan drop status permanen! Ini adalah status dari item/armor yang baru kamu dapat. Ketik .inv untuk melihat tas dan .equip untuk memakai item ini._`;
+                    reply += `   🍀 Luck: +${formatNumber(item.stats.luck)}\n`;
+                    reply += `\n_Ini bukan drop status permanen! Ini adalah status dari item/armor yang baru kamu dapat. Ketik .inv untuk melihat tas dan .equip untuk memakai item ini._`;
                 }
             } else {
                 reply += `😔 Sayang sekali, monster tidak menjatuhkan item apa-apa.`;
+            }
+            
+            let expGained = 0;
+            if (monster.class === 'lemah') expGained = randomInt(5, 20);
+            else if (monster.class === 'kuat') expGained = randomInt(50, 150);
+            else expGained = randomInt(500, 2000);
+            
+            const expResult = Users.addExp(m.sender, expGained);
+            reply += `\n✨ +${formatNumber(expGained)} EXP`;
+            if (expResult.leveledUp) {
+                reply += `\n🌟 *LEVEL UP!* Kamu naik ke Level ${expResult.newLevel}! 🌟`;
             }
             
             await m.reply(reply);
@@ -371,11 +382,11 @@ module.exports = [
             // Cost calculation
             let cost = 0;
             if (stat === 'power') {
-                cost = 50000 + (currentStat * 500); // Base cost
+                cost = 50000 + (currentStat * currentStat * 50); // Exponential cost
             } else if (stat === 'luck') {
-                cost = 100000 + (currentStat * 1000); // 2x lebih mahal
+                cost = 100000 + (currentStat * currentStat * 100); // 2x lebih mahal
             } else if (stat === 'defense') {
-                cost = 30000 + (currentStat * 300); // Lebih murah dari power
+                cost = 30000 + (currentStat * currentStat * 30); // Lebih murah dari power
             }
             
             const user = Users.getOrCreate(m.sender);
@@ -412,12 +423,12 @@ module.exports = [
         }
     },
     {
-        name: 'buyrpgcoin', category: 'games', desc: 'Beli Koin RPG dengan Balance (1 Koin = 10.000 Balance)', usage: '<jumlah>',
+        name: 'buyrpgcoin', category: 'games', desc: 'Beli Koin RPG dengan Balance (1 Koin = 50.000 Balance)', usage: '<jumlah>',
         async execute({ sock, m, args }) {
             const amount = parseInt(args[0]);
             if (isNaN(amount) || amount < 1) return m.reply('❌ Masukkan jumlah koin RPG yang ingin dibeli.\nContoh: .buyrpgcoin 5');
             
-            const cost = amount * 10000;
+            const cost = amount * 50000;
             const user = Users.getOrCreate(m.sender);
             if (user.balance < cost) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
             
