@@ -197,7 +197,16 @@ module.exports = [
             }
             
             // Victory
-            let reply = `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
+            let statDropMsg = '';
+            if (Math.random() < 0.3) {
+                const statTypes = ['power', 'defense', 'luck'];
+                const dropStat = statTypes[Math.floor(Math.random() * statTypes.length)];
+                const inc = dropStat === 'luck' ? 2 : 20;
+                RPG.upgradeBaseStat(m.sender, dropStat, inc);
+                statDropMsg = `✨ Menyerap energi monster! Base ${dropStat.toUpperCase()} +${inc}\n\n`;
+            }
+            
+            let reply = `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n${statDropMsg}`;
             
             // Check drops
             if (Math.random() < monster.dropChance) {
@@ -305,9 +314,17 @@ module.exports = [
                 reward = 10;
                 material = '🪨 Stone';
             }
+            let statDropMsg = '';
+            if (Math.random() < 0.15) {
+                const statTypes = ['power', 'defense', 'luck'];
+                const dropStat = statTypes[Math.floor(Math.random() * statTypes.length)];
+                const inc = dropStat === 'luck' ? 1 : 10;
+                RPG.upgradeBaseStat(m.sender, dropStat, inc);
+                statDropMsg = `\n✨ Kamu menemukan pecahan kristal! Base ${dropStat.toUpperCase()} +${inc}`;
+            }
             
             RPG.addCoin(m.sender, reward);
-            await m.reply(`⛏️ Kamu menambang dan mendapatkan *${material}*!\n💰 Koin RPG bertambah: 🪙 ${formatNumber(reward)}`);
+            await m.reply(`⛏️ Kamu menambang dan mendapatkan *${material}*!\n💰 Koin RPG bertambah: 🪙 ${formatNumber(reward)}${statDropMsg}`);
         }
     },
     {
