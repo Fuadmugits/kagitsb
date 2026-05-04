@@ -22,15 +22,15 @@ module.exports = {
     limits: {
         free: 20,
         premium: 999999,
-        maxBalance: 500000,   // Batas maksimal balance yang bisa dimiliki user
+        maxBalance: 100000000,   // Batas maksimal balance yang bisa dimiliki user
     },
     prices: {
         premium_30d: 25000,
         premium_7d: 5000,
         premium_14d: 10000,
-        limit_10: 5000,
-        limit_50: 20000,
-        limit_100: 35000,
+        limit_10: 50000,
+        limit_50: 200000,
+        limit_100: 350000,
     },
     // Global game schedule (24-hour format HH:mm)
     gameSchedule: (() => {

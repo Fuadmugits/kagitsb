@@ -43,37 +43,77 @@ module.exports = [
     {
         name: 'slot', category: 'games', desc: 'Main slot machine',
         async execute({ m }) {
+            const { calculateTotalStats } = require('../lib/rpg');
+            const stats = calculateTotalStats(m.sender);
+            const luckBonus = Math.min(0.2, (stats.luck || 0) * 0.00001); // Max 20% forced win from luck
+
             const user = Users.getOrCreate(m.sender, m.pushName);
             const emojis = ['🍒','🍋','🍊','🍇','💎','7️⃣','🔔','⭐'];
-            const s = [pickRandom(emojis), pickRandom(emojis), pickRandom(emojis)];
+            let s = [pickRandom(emojis), pickRandom(emojis), pickRandom(emojis)];
+            
+            // Re-roll mechanics using luck
+            if (Math.random() < luckBonus && s[0] !== s[1] && s[1] !== s[2]) {
+                const winEmoji = pickRandom(emojis);
+                s = [winEmoji, winEmoji, winEmoji]; // force jackpot
+            } else if (Math.random() < luckBonus * 2 && s[0] !== s[1] && s[1] !== s[2]) {
+                s[2] = s[1]; // force minor win
+            }
+
             let win = 0;
             if (s[0]===s[1] && s[1]===s[2]) { win = s[0]==='💎' ? 5000 : s[0]==='7️⃣' ? 3000 : 1000; }
             else if (s[0]===s[1] || s[1]===s[2] || s[0]===s[2]) { win = 250; }
+            
             if (win > 0) { Users.addBalance(m.sender, win); Transactions.create(m.sender, 'game_win', win, 'Slot machine'); }
             await m.reply(`🎰 *SLOT MACHINE*\n\n┃ ${s.join(' ┃ ')} ┃\n\n${win > 0 ? `🎉 MENANG! +${formatNumber(win)} balance!` : '😢 Coba lagi!'}`);
         }
     },
     {
-        name: 'casino', category: 'games', desc: 'Main casino (x3/x7)', usage: '(nominal)',
+        name: 'casino', category: 'games', desc: 'Main casino (x3/x7/x12)', usage: '(nominal)',
         async execute({ m, args }) {
             const bet = parseInt(args[0]) || 100;
             const user = Users.getOrCreate(m.sender, m.pushName);
             if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
             if (bet < 100) return m.reply('❌ Minimal bet 100!');
 
+            const { calculateTotalStats } = require('../lib/rpg');
+            const stats = calculateTotalStats(m.sender);
+            const userLuck = stats.luck || 0;
+
+            // Base chances
+            let superJackpotChance = 0.005; // 0.5%
+            let jackpotChance = 0.015; // 1.5%
+            let winChance = 0.25; // 25%
+
+            // Luck bonus scaling
+            const superBonus = Math.min(0.05, userLuck * 0.000005);
+            const jackBonus = Math.min(0.1, userLuck * 0.00001);
+            const winBonus = Math.min(0.2, userLuck * 0.00002);
+
+            superJackpotChance += superBonus;
+            jackpotChance += jackBonus;
+            winChance += winBonus;
+
             const roll = Math.random();
-            // 1.5% jackpot → +7x modal | 25% menang → +3x modal | 73.5% kalah → -1x modal
-            if (roll < 0.015) {
+            const t1 = superJackpotChance;
+            const t2 = t1 + jackpotChance;
+            const t3 = t2 + winChance;
+
+            if (roll < t1) {
+                const superWin = bet * 12;
+                Users.addBalance(m.sender, superWin);
+                Transactions.create(m.sender, 'casino_superjackpot', superWin, 'Casino');
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🌟🌟🌟 *SUPER MEGA JACKPOT!!!* 🌟🌟🌟\n\n🍀 KEBERUNTUNGAN DEWA! Berkat luck ${formatNumber(userLuck)}, kamu mendapatkan SUPER JACKPOT!\n💰 +${formatNumber(superWin)} balance *(12x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((t1)*100).toFixed(2)}%`);
+            } else if (roll < t2) {
                 const jackpotWin = bet * 7;
                 Users.addBalance(m.sender, jackpotWin);
                 Transactions.create(m.sender, 'casino_jackpot', jackpotWin, 'Casino');
                 Achievements.grant(m.sender, 'casino_jackpot');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(7x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: 1.5%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
-            } else if (roll < 0.265) {
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(7x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((jackpotChance)*100).toFixed(2)}%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
+            } else if (roll < t3) {
                 const winAmount = bet * 3;
                 Users.addBalance(m.sender, winAmount);
                 Transactions.create(m.sender, 'casino_win', winAmount, 'Casino');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(winAmount)} balance *(3x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: 25%`);
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(winAmount)} balance *(3x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((winChance)*100).toFixed(2)}%`);
             } else {
                 Users.addBalance(m.sender, -bet);
                 Transactions.create(m.sender, 'casino_lose', -bet, 'Casino');

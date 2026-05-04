@@ -1,5 +1,6 @@
 const config = require('../config');
-const { Users, Transactions, CommandLogs, AFK } = require('../database');
+const { Users, Transactions, CommandLogs, AFK, RPG } = require('../database');
+const { calculateTotalStats, ITEM_TYPES } = require('../lib/rpg');
 const { getTime, getDate, getDay, getGreeting, runtime, formatNumber, isOwner } = require('../lib/functions');
 const { getCommands, getCommandCount } = require('../lib/handler');
 
@@ -95,6 +96,9 @@ module.exports = [
         async execute({ m }) {
             const user = Users.getOrCreate(m.sender, m.pushName);
             const isPrem = Users.isPremium(m.sender) || isOwner(m.sender);
+            const stats = calculateTotalStats(m.sender);
+            const userRpg = RPG.getUser(m.sender);
+            
             let text = `╭───「 👤 𝙿𝚁𝙾𝙵𝙸𝙻𝙴 」\n`;
             text += `│ 📛 Nama     : ${m.pushName}\n`;
             text += `│ 🆔 ID       : ${m.sender.split('@')[0]}\n`;
@@ -106,6 +110,26 @@ module.exports = [
                 text += `│ ⏰ Expire   : ${user.premium_expire.split('T')[0]}\n`;
             }
             text += `│ 📅 Joined   : ${user.created_at?.split('T')[0] || '-'}\n`;
+            text += `╰──────────────\n\n`;
+            
+            text += `╭───「 ⚔️ 𝚁𝙿𝙶 𝚂𝚃𝙰𝚃𝚂 」\n`;
+            text += `│ 🗡️ Power : ${formatNumber(stats.power)}\n`;
+            text += `│ 🛡️ Def   : ${formatNumber(stats.defense)}\n`;
+            text += `│ 🍀 Luck  : ${formatNumber(stats.luck)}\n`;
+            text += `╰──────────────\n\n`;
+            
+            text += `╭───「 🛡️ 𝙴𝚀𝚄𝙸𝙿𝙼𝙴𝙽𝚃 」\n`;
+            for (const slot of ITEM_TYPES) {
+                let itemName = 'Kosong';
+                if (userRpg[slot]) {
+                    try {
+                        const item = JSON.parse(userRpg[slot]);
+                        itemName = `${item.name} ${item.grade}`;
+                    } catch(e) {}
+                }
+                const icon = slot === 'weapon' ? '🗡️' : slot === 'helmet' ? '🪖' : slot === 'armor' ? '🦺' : slot === 'glove' ? '🧤' : slot === 'legging' ? '👖' : '🥾';
+                text += `│ ${icon} ${slot.charAt(0).toUpperCase() + slot.slice(1)}: ${itemName}\n`;
+            }
             text += `╰──────────────`;
             await m.reply(text);
         }

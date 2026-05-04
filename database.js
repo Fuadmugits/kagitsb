@@ -135,6 +135,28 @@ async function initDatabase() {
         PRIMARY KEY (jid, group_jid)
     )`);
 
+    // RPG System
+    db.run(`CREATE TABLE IF NOT EXISTS rpg_users (
+        jid TEXT PRIMARY KEY,
+        weapon TEXT,
+        helmet TEXT,
+        armor TEXT,
+        glove TEXT,
+        legging TEXT,
+        shoe TEXT,
+        last_attack TEXT,
+        last_mine TEXT,
+        last_pvp TEXT
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS rpg_inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        jid TEXT,
+        item_type TEXT,
+        item_data TEXT,
+        amount INTEGER DEFAULT 1
+    )`);
+
     saveDb();
     console.log('✅ Database initialized');
     return db;
@@ -696,4 +718,48 @@ const CustomTitles = {
     }
 };
 
-module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, CustomTitles, test };
+// ═══════════════════════════════════════
+//  RPG SYSTEM
+// ═══════════════════════════════════════
+const RPG = {
+    getUser(jid) {
+        let row = queryOne('SELECT * FROM rpg_users WHERE jid = ?', [jid]);
+        if (!row) {
+            run('INSERT OR IGNORE INTO rpg_users (jid) VALUES (?)', [jid]);
+            row = queryOne('SELECT * FROM rpg_users WHERE jid = ?', [jid]);
+        }
+        return row;
+    },
+    updateEquip(jid, slot, itemDataJSON) {
+        const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
+        if (!slots.includes(slot)) return false;
+        run(`UPDATE rpg_users SET ${slot} = ? WHERE jid = ?`, [itemDataJSON, jid]);
+        return true;
+    },
+    updateCooldown(jid, type) {
+        const types = ['attack', 'mine', 'pvp'];
+        if (!types.includes(type)) return false;
+        run(`UPDATE rpg_users SET last_${type} = datetime("now") WHERE jid = ?`, [jid]);
+    },
+    getInventory(jid) {
+        return query('SELECT * FROM rpg_inventory WHERE jid = ? AND amount > 0', [jid]);
+    },
+    addInventory(jid, itemType, itemDataJSON, amount = 1) {
+        run('INSERT INTO rpg_inventory (jid, item_type, item_data, amount) VALUES (?, ?, ?, ?)', [jid, itemType, itemDataJSON, amount]);
+    },
+    removeInventory(id, amount = 1) {
+        const item = queryOne('SELECT * FROM rpg_inventory WHERE id = ?', [id]);
+        if (!item) return false;
+        if (item.amount <= amount) {
+            run('DELETE FROM rpg_inventory WHERE id = ?', [id]);
+        } else {
+            run('UPDATE rpg_inventory SET amount = amount - ? WHERE id = ?', [amount, id]);
+        }
+        return true;
+    },
+    getInventoryItem(id) {
+        return queryOne('SELECT * FROM rpg_inventory WHERE id = ?', [id]);
+    }
+};
+
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, CustomTitles, RPG, test };
