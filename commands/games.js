@@ -812,6 +812,9 @@ module.exports = [
     {
         name: 'rampok', category: 'games', desc: 'Rampok balance member', usage: '(@tag)',
         async execute({ m }) {
+            if (Users.isJailed(m.sender)) {
+                return m.reply(`🚔 Kamu masih di dalam penjara!\nTunggu ${Users.getJailTimeLeft(m.sender)} menit lagi sebelum bisa merampok.`);
+            }
             const target = m.mentionedJid?.[0] || m.quoted?.sender;
             if (!target) return m.reply('❌ Tag target!');
             const success = Math.random() > 0.6;
@@ -823,16 +826,28 @@ module.exports = [
                     Users.addBalance(m.sender, amount);
                     await m.reply(`🔫 Berhasil merampok @${target.split('@')[0]}!\n💰 +${formatNumber(amount)} balance`);
                 } else { await m.reply(`😢 @${target.split('@')[0]} terlalu miskin untuk dirampok!`); }
-            } else { await m.reply(`👮 Kamu gagal merampok dan kena tangkap! Denda ${formatNumber(amount)} balance.`); Users.addBalance(m.sender, -Math.min(amount, Users.get(m.sender)?.balance || 0)); }
+            } else { 
+                await m.reply(`👮 Kamu gagal merampok dan kena tangkap!\nMasuk penjara selama 30 menit dan denda ${formatNumber(amount)} balance.`); 
+                Users.addBalance(m.sender, -Math.min(amount, Users.get(m.sender)?.balance || 0));
+                Users.setJail(m.sender, 30);
+            }
         }
     },
     {
         name: 'begal', category: 'games', desc: 'Begal balance',
         async execute({ m }) {
+            if (Users.isJailed(m.sender)) {
+                return m.reply(`🚔 Kamu masih di dalam penjara!\nTunggu ${Users.getJailTimeLeft(m.sender)} menit lagi sebelum bisa membegal.`);
+            }
             const amount = randomInt(100, 500);
             const success = Math.random() > 0.5;
-            if (success) { Users.addBalance(m.sender, amount); await m.reply(`🔪 Begal berhasil! +${formatNumber(amount)} balance`); }
-            else { await m.reply('👮 Begal gagal! Kamu tertangkap!'); }
+            if (success) { 
+                Users.addBalance(m.sender, amount); 
+                await m.reply(`🔪 Begal berhasil! +${formatNumber(amount)} balance`); 
+            } else { 
+                await m.reply('👮 Begal gagal! Kamu tertangkap dan dipenjara 30 menit!');
+                Users.setJail(m.sender, 30);
+            }
         }
     },
     {

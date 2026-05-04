@@ -201,7 +201,7 @@ module.exports = [
             // Check drops
             if (Math.random() < monster.dropChance) {
                 const dropType = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
-                const item = generateItem(dropType);
+                const item = generateItem(dropType, monster.class);
                 if (item) {
                     RPG.addInventory(m.sender, dropType, JSON.stringify(item), 1);
                     reply += `🎁 *DROP ITEM!*\n`;
@@ -391,10 +391,16 @@ module.exports = [
         }
     },
     {
-        name: 'monsterlist', aliases: ['monsters', 'daftarmonster'], category: 'games', desc: 'Lihat daftar monster untuk dilawan',
-        async execute({ sock, m }) {
-            let text = `╭───「 🐉 *DAFTAR MONSTER* 」\n`;
+        name: 'monsterlist', aliases: ['monsters', 'daftarmonster'], category: 'games', desc: 'Lihat daftar monster untuk dilawan', usage: '<lemah/kuat/boss>',
+        async execute({ sock, m, args }) {
+            const cls = args[0]?.toLowerCase();
+            if (!['lemah', 'kuat', 'boss'].includes(cls)) {
+                return m.reply('❌ Format salah!\n\nSilakan pilih kategori monster:\n- `.monsterlist lemah`\n- `.monsterlist kuat`\n- `.monsterlist boss`');
+            }
+            
+            let text = `╭───「 🐉 *DAFTAR MONSTER: ${cls.toUpperCase()}* 」\n`;
             for (const key in MONSTERS) {
+                if (MONSTERS[key].class !== cls) continue;
                 const mon = MONSTERS[key];
                 text += `│ 👹 *${mon.name}*\n`;
                 text += `│    └ Req Power: 🗡️ ${formatNumber(mon.powerReq)}\n`;

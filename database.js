@@ -45,6 +45,7 @@ async function initDatabase() {
     // Auto-migrate columns if they don't exist
     try { db.run('ALTER TABLE users ADD COLUMN exp INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1'); } catch {}
+    try { db.run('ALTER TABLE users ADD COLUMN jail_until TEXT'); } catch {}
     db.run(`CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT, jid TEXT, type TEXT, amount INTEGER,
         description TEXT, created_at TEXT DEFAULT (datetime('now'))
@@ -262,6 +263,25 @@ const Users = {
         Transactions.create(fromJid, 'transfer_out', -amount, `Transfer ke ${toJid}`);
         Transactions.create(toJid, 'transfer_in', amount, `Transfer dari ${fromJid}`);
         return true;
+    },
+    setJail(jid, minutes) {
+        if (minutes <= 0) {
+            run('UPDATE users SET jail_until = NULL WHERE jid = ?', [jid]);
+        } else {
+            const until = new Date(Date.now() + minutes * 60000).toISOString();
+            run('UPDATE users SET jail_until = ? WHERE jid = ?', [until, jid]);
+        }
+    },
+    isJailed(jid) {
+        const u = this.get(jid);
+        if (!u || !u.jail_until) return false;
+        return new Date(u.jail_until).getTime() > Date.now();
+    },
+    getJailTimeLeft(jid) {
+        const u = this.get(jid);
+        if (!u || !u.jail_until) return 0;
+        const diff = new Date(u.jail_until).getTime() - Date.now();
+        return diff > 0 ? Math.ceil(diff / 60000) : 0;
     }
 };
 
