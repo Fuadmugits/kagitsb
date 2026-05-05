@@ -299,6 +299,58 @@ module.exports = [
         }
     },
     {
+        name: 'useitem', aliases: ['pakai'], category: 'rpg', desc: 'Gunakan item consumable dari tas', usage: '<id_item>',
+        async execute({ sock, m, args }) {
+            const id = parseInt(args[0]);
+            if (isNaN(id)) return m.reply('❌ Masukkan ID item dari .inv');
+            
+            const itemRow = RPG.getInventoryItem(id);
+            if (!itemRow || itemRow.jid !== m.sender || itemRow.amount < 1) {
+                return m.reply('❌ Item tidak ditemukan di tas kamu!');
+            }
+            
+            try {
+                const itemData = JSON.parse(itemRow.item_data);
+                if (itemData.type !== 'consumable') return m.reply('❌ Item ini tidak bisa digunakan, hanya bisa dipakai (.equip)');
+                
+                const effect = itemData.stats.effect;
+                let reply = `✨ *MENGGUNAKAN ${itemData.name.toUpperCase()}* ✨\n\n`;
+                
+                if (effect === 'gacha') {
+                    const rand = Math.random();
+                    if (rand < 0.1) {
+                        const bal = randomInt(500000, 2000000);
+                        Users.addBalance(m.sender, bal);
+                        reply += `💰 *JACKPOT!* Kamu mendapatkan Balance: Rp ${formatNumber(bal)}`;
+                    } else if (rand < 0.3) {
+                        const coins = randomInt(500, 1500);
+                        RPG.addCoin(m.sender, coins);
+                        reply += `🪙 Kamu mendapatkan: ${formatNumber(coins)} Koin RPG`;
+                    } else {
+                        const { generateItem, ITEM_TYPES } = require('../lib/rpg');
+                        const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+                        const item = generateItem(type, 'kuat');
+                        RPG.addInventory(m.sender, type, JSON.stringify(item));
+                        reply += `🎁 Kamu mendapatkan equipment baru!\n📦 Item: ${item.name}\n✨ Rarity: ${item.rarity}`;
+                    }
+                } else if (effect === 'premium') {
+                    const days = itemData.stats.days || 1;
+                    Users.setPremium(m.sender, days);
+                    reply += `💎 *PREMIUM AKTIF!* Akun kamu sekarang menjadi Premium selama ${days} hari.`;
+                } else if (effect === 'balance') {
+                    const amount = randomInt(itemData.stats.min, itemData.stats.max);
+                    Users.addBalance(m.sender, amount);
+                    reply += `💸 Kamu mendapatkan Balance: Rp ${formatNumber(amount)}`;
+                }
+                
+                RPG.removeInventory(id, 1);
+                await m.reply(reply);
+            } catch (e) {
+                await m.reply('❌ Gagal menggunakan item.');
+            }
+        }
+    },
+    {
         name: 'mine', category: 'rpg', desc: 'Menambang batu & mineral',
         async execute({ sock, m }) {
             const userRpg = RPG.getUser(m.sender);
@@ -541,11 +593,15 @@ module.exports = [
                 text += `│ 🔰 *${category.toUpperCase()}*\n`;
                 for (const item of RPG_SHOP[category]) {
                     text += `│  └ [${item.id}] ${item.name} | 🪙 ${item.price}\n`;
-                    text += `│      (P: ${item.stats.power}, D: ${item.stats.defense}, L: ${item.stats.luck})\n`;
+                    if (category === 'consumable') {
+                        text += `│      _${item.desc}_\n`;
+                    } else {
+                        text += `│      (P: ${item.stats.power}, D: ${item.stats.defense}, L: ${item.stats.luck})\n`;
+                    }
                 }
                 text += `│\n`;
             }
-            text += `╰──────────────\n\n_Gunakan .buyrpg <id> untuk membeli._\n_Koin RPG kamu: 🪙 ${formatNumber(RPG.getCoin(m.sender))}_`;
+            text += `╰──────────────\n\n_Gunakan .buyrpg <id> untuk membeli._\n_Gunakan .useitem <id_inv> untuk item consumable._\n_Koin RPG kamu: 🪙 ${formatNumber(RPG.getCoin(m.sender))}_`;
             await m.reply(text);
         }
     },
