@@ -431,8 +431,12 @@ const GroupLevels = {
             }
         }
 
-        // Add 1 EXP + update last_chat timestamp
-        const newExp = data.exp + 1;
+        // Add EXP (Multiplier for Admin Abuse)
+        const abuseVal = Settings.get('adminabuse_' + groupJid);
+        const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+        const amount = 1 * multiplier;
+
+        const newExp = data.exp + amount;
         const expNeeded = this.getExpNeeded(data.level);
         const nowISO = new Date(now).toISOString();
 

@@ -96,7 +96,7 @@ module.exports = [
         async execute({ m }) {
             const user = Users.getOrCreate(m.sender, m.pushName);
             const isPrem = Users.isPremium(m.sender) || isOwner(m.sender);
-            const stats = calculateTotalStats(m.sender);
+            const stats = calculateTotalStats(m.sender, m.chat);
             const userRpg = RPG.getUser(m.sender);
             
             let text = `╭───「 👤 𝙿𝚁𝙾𝙵𝙸𝙻𝙴 」\n`;
@@ -113,6 +113,8 @@ module.exports = [
             text += `╰──────────────\n\n`;
             
             text += `╭───「 ⚔️ 𝚁𝙿𝙶 𝚂𝚃𝙰𝚃𝚂 」\n`;
+            text += `│ 📈 Level : ${user.level}\n`;
+            text += `│ ✨ EXP   : ${formatNumber(user.exp)}\n`;
             text += `│ 🪙 Koin  : ${formatNumber(RPG.getCoin(m.sender))}\n`;
             text += `│ 🗡️ Power : ${formatNumber(stats.power)}\n`;
             text += `│ 🛡️ Def   : ${formatNumber(stats.defense)}\n`;

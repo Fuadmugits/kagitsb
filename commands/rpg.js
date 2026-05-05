@@ -170,7 +170,7 @@ module.exports = [
         }
     },
     {
-        name: 'attack', category: 'games', desc: 'Serang monster untuk mendapatkan item', usage: '<monster>',
+        name: 'attack', category: 'rpg', desc: 'Serang monster untuk mendapatkan item', usage: '<monster>',
         async execute({ sock, m, args }) {
             const monsterName = args[0]?.toLowerCase();
             if (!monsterName || !MONSTERS[monsterName]) {
@@ -178,7 +178,7 @@ module.exports = [
             }
             
             const monster = MONSTERS[monsterName];
-            const stats = calculateTotalStats(m.sender);
+            const stats = calculateTotalStats(m.sender, m.chat);
             
             // Check cooldown (3.5 minutes)
             const userRpg = RPG.getUser(m.sender);
@@ -219,12 +219,24 @@ module.exports = [
             }
             
             let expGained = 0;
+            let koinGained = 0;
             if (monster.class === 'lemah') expGained = randomInt(5, 20);
             else if (monster.class === 'kuat') expGained = randomInt(50, 150);
             else expGained = randomInt(500, 2000);
             
+            const { Settings } = require('../database');
+            const abuseVal = Settings.get('adminabuse_' + m.chat);
+            const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+            
+            if (multiplier > 1) {
+                expGained *= multiplier;
+                koinGained = randomInt(20, 100) * (multiplier / 2); // scaling koin bonus
+            }
+            
+            if (koinGained > 0) RPG.addCoin(m.sender, koinGained);
             const expResult = Users.addExp(m.sender, expGained);
             reply += `\n✨ +${formatNumber(expGained)} EXP`;
+            if (koinGained > 0) reply += `\n🪙 +${formatNumber(Math.round(koinGained))} Koin (Admin Abuse x${multiplier} Bonus)`;
             if (expResult.leveledUp) {
                 reply += `\n🌟 *LEVEL UP!* Kamu naik ke Level ${expResult.newLevel}! 🌟`;
             }
@@ -233,7 +245,7 @@ module.exports = [
         }
     },
     {
-        name: 'inventory', aliases: ['inv', 'tas'], category: 'games', desc: 'Lihat isi tas RPG kamu',
+        name: 'inventory', aliases: ['inv', 'tas'], category: 'rpg', desc: 'Lihat isi tas RPG kamu',
         async execute({ sock, m }) {
             const items = RPG.getInventory(m.sender);
             if (!items.length) return m.reply('🎒 Tas kamu kosong.');
@@ -251,7 +263,7 @@ module.exports = [
         }
     },
     {
-        name: 'equip', category: 'games', desc: 'Pakai item dari tas', usage: '<id_item>',
+        name: 'equip', category: 'rpg', desc: 'Pakai item dari tas', usage: '<id_item>',
         async execute({ sock, m, args }) {
             const id = parseInt(args[0]);
             if (isNaN(id)) return m.reply('❌ Masukkan ID item dari .inv');
@@ -286,7 +298,7 @@ module.exports = [
         }
     },
     {
-        name: 'mine', category: 'games', desc: 'Menambang batu & mineral',
+        name: 'mine', category: 'rpg', desc: 'Menambang batu & mineral',
         async execute({ sock, m }) {
             const userRpg = RPG.getUser(m.sender);
             if (userRpg.last_mine) {
@@ -317,6 +329,13 @@ module.exports = [
                 material = '🪨 Stone';
             }
             
+            const { Settings } = require('../database');
+            const abuseVal = Settings.get('adminabuse_' + m.chat);
+            const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+            if (multiplier > 1) {
+                reward *= multiplier;
+            }
+            
             const balReward = reward * 1000; // balance reward
             
             RPG.addCoin(m.sender, reward);
@@ -325,7 +344,7 @@ module.exports = [
         }
     },
     {
-        name: 'pvp', category: 'games', desc: 'Tantang player lain bertarung', usage: '@tag',
+        name: 'pvp', category: 'rpg', desc: 'Tantang player lain bertarung', usage: '@tag',
         async execute({ sock, m, args }) {
             const target = m.mentionedJid?.[0] || (args[0] ? args[0].replace(/[^0-9]/g,'') + '@s.whatsapp.net' : null);
             if (!target) return m.reply('❌ Tag orang yang ingin dilawan!\nContoh: .pvp @user');
@@ -361,7 +380,7 @@ module.exports = [
         }
     },
     {
-        name: 'terimapvp', aliases: ['terima'], category: 'games', desc: 'Menerima tantangan PvP',
+        name: 'terimapvp', aliases: ['terima'], category: 'rpg', desc: 'Menerima tantangan PvP',
         async execute({ sock, m, args }) {
             if (m.command === 'terima' && args[0]?.toLowerCase() !== 'pvp') return;
             
@@ -377,8 +396,8 @@ module.exports = [
             RPG.updateCooldown(challenger, 'pvp');
             RPG.updateCooldown(m.sender, 'pvp');
             
-            const p1Stats = calculateTotalStats(challenger);
-            const p2Stats = calculateTotalStats(m.sender);
+            const p1Stats = calculateTotalStats(challenger, m.chat);
+            const p2Stats = calculateTotalStats(m.sender, m.chat);
             
             // RNG factor based on Luck
             const p1LuckRoll = Math.random() * (p1Stats.luck || 1);
@@ -392,13 +411,21 @@ module.exports = [
             text += `🎯 *@${m.sender.split('@')[0]}*: Power ${formatNumber(p2Stats.power)} | Def ${formatNumber(p2Stats.defense)}\n\n`;
             
             if (p1Score > p2Score) {
-                const loot = Math.floor(Math.random() * 20) + 5;
+                let loot = Math.floor(Math.random() * 20) + 5;
+                const { Settings } = require('../database');
+                const abuseVal = Settings.get('adminabuse_' + m.chat);
+                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                if (multiplier > 1) loot *= multiplier;
                 RPG.addCoin(challenger, loot);
-                text += `🎉 *@${challenger.split('@')[0]} MENANG!* 🎉\nMerampas 🪙 ${formatNumber(loot)} Koin RPG dari arena!`;
+                text += `🎉 *@${challenger.split('@')[0]} MENANG!* 🎉\nMerampas 🪙 ${formatNumber(loot)} Koin RPG dari arena! ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`;
             } else if (p2Score > p1Score) {
-                const loot = Math.floor(Math.random() * 20) + 5;
+                let loot = Math.floor(Math.random() * 20) + 5;
+                const { Settings } = require('../database');
+                const abuseVal = Settings.get('adminabuse_' + m.chat);
+                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                if (multiplier > 1) loot *= multiplier;
                 RPG.addCoin(m.sender, loot);
-                text += `💀 *@${challenger.split('@')[0]} KALAH!* 💀\n@${m.sender.split('@')[0]} menang dan merampas 🪙 ${formatNumber(loot)} Koin RPG!`;
+                text += `💀 *@${challenger.split('@')[0]} KALAH!* 💀\n@${m.sender.split('@')[0]} menang dan merampas 🪙 ${formatNumber(loot)} Koin RPG! ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`;
             } else {
                 text += `🤝 *SERI!* 🤝\nKalian sama-sama kuat!`;
             }
@@ -407,7 +434,7 @@ module.exports = [
         }
     },
     {
-        name: 'tolakpvp', aliases: ['tolak'], category: 'games', desc: 'Menolak tantangan PvP',
+        name: 'tolakpvp', aliases: ['tolak'], category: 'rpg', desc: 'Menolak tantangan PvP',
         async execute({ sock, m, args }) {
             if (m.command === 'tolak' && args[0]?.toLowerCase() !== 'pvp') return;
             
@@ -422,7 +449,7 @@ module.exports = [
         }
     },
     {
-        name: 'upgrade', category: 'games', desc: 'Upgrade stat dasar (power/defense/luck)', usage: '<stat>',
+        name: 'upgrade', category: 'rpg', desc: 'Upgrade stat dasar (power/defense/luck)', usage: '<stat>',
         async execute({ sock, m, args }) {
             const stat = args[0]?.toLowerCase();
             const valid = ['power', 'defense', 'luck'];
@@ -455,7 +482,7 @@ module.exports = [
         }
     },
     {
-        name: 'monsterlist', aliases: ['monsters', 'daftarmonster'], category: 'games', desc: 'Lihat daftar monster untuk dilawan', usage: '<lemah/kuat/boss>',
+        name: 'monsterlist', aliases: ['monsters', 'daftarmonster'], category: 'rpg', desc: 'Lihat daftar monster untuk dilawan', usage: '<lemah/kuat/boss>',
         async execute({ sock, m, args }) {
             const cls = args[0]?.toLowerCase();
             if (!['lemah', 'kuat', 'boss'].includes(cls)) {
@@ -475,7 +502,7 @@ module.exports = [
         }
     },
     {
-        name: 'buyrpgcoin', category: 'games', desc: 'Beli Koin RPG dengan Balance (1 Koin = 50.000 Balance)', usage: '<jumlah>',
+        name: 'buyrpgcoin', category: 'rpg', desc: 'Beli Koin RPG dengan Balance (1 Koin = 50.000 Balance)', usage: '<jumlah>',
         async execute({ sock, m, args }) {
             const amount = parseInt(args[0]);
             if (isNaN(amount) || amount < 1) return m.reply('❌ Masukkan jumlah koin RPG yang ingin dibeli.\nContoh: .buyrpgcoin 5');
@@ -490,7 +517,7 @@ module.exports = [
         }
     },
     {
-        name: 'rpgshop', category: 'games', desc: 'Lihat daftar item RPG yang bisa dibeli',
+        name: 'rpgshop', category: 'rpg', desc: 'Lihat daftar item RPG yang bisa dibeli',
         async execute({ sock, m }) {
             let text = `╭───「 🏪 *RPG SHOP* 」\n`;
             for (const category in RPG_SHOP) {
@@ -506,7 +533,7 @@ module.exports = [
         }
     },
     {
-        name: 'buyrpg', category: 'games', desc: 'Beli item dari RPG Shop', usage: '<id>',
+        name: 'buyrpg', category: 'rpg', desc: 'Beli item dari RPG Shop', usage: '<id>',
         async execute({ sock, m, args }) {
             const id = args[0]?.toLowerCase();
             if (!id) return m.reply('❌ Masukkan ID item!\nContoh: .buyrpg w1\n\n_Lihat daftar item di .rpgshop_');
@@ -542,7 +569,7 @@ module.exports = [
         }
     },
     {
-        name: 'toprpgcoin', aliases: ['toprpg'], category: 'games', desc: 'Lihat top pemain dengan koin RPG terbanyak',
+        name: 'toprpgcoin', aliases: ['toprpg'], category: 'rpg', desc: 'Lihat top pemain dengan koin RPG terbanyak',
         async execute({ sock, m }) {
             const top = RPG.getTopRPGCoin();
             if (!top || top.length === 0) return m.reply('Belum ada pemain yang memiliki Koin RPG.');

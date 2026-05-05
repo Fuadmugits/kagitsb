@@ -112,6 +112,18 @@ module.exports = [
         }
     },
     {
+        name: 'addcoin', aliases: ['addkoin'], category: 'owner', desc: 'Tambah coin RPG', usage: '(@tag/nomor) (jumlah)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const hasQuoted  = !!m.quoted?.sender;
+            const jid    = resolveJid(m, args, 0);
+            const amount = parseInt(hasQuoted ? args[0] : args[1]) || 0;
+            if (!jid) return m.reply('❌ Format: .addcoin @tag 1000\natau: .addcoin 628xxx 1000');
+            if (!amount) return m.reply('❌ Masukkan jumlah coin!\nContoh: .addcoin @tag 5000');
+            RPG.addCoin(jid, amount);
+            await m.reply(`✅ +${formatNumber(amount)} RPG Coin ke @${jid.split('@')[0]}`);
+        }
+    },
+    {
         name: 'addlimit', category: 'owner', desc: 'Tambah limit', usage: '(@tag/nomor) (jumlah)', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
             const hasQuoted  = !!m.quoted?.sender;
@@ -452,6 +464,25 @@ module.exports = [
         async execute({ m }) {
             RPG.resetRPG();
             await m.reply('✅ *RESET BERHASIL*\n\nSeluruh data equipment, koin, base stats, dan inventory RPG semua player telah direset ke awal!');
+        }
+    },
+    {
+        name: 'adminabuse', category: 'owner', desc: 'Aktifkan multiplier exp, luck, dan koin untuk seluruh member di grup ini', usage: 'on [multiplier]/off', ownerOnly: true, groupOnly: true, noLimit: true,
+        async execute({ sock, m, args }) {
+            const action = args[0]?.toLowerCase();
+            if (!['on', 'off'].includes(action)) return m.reply('❌ Gunakan "on [multiplier]" atau "off"!\nContoh: .adminabuse on 4');
+            
+            if (action === 'on') {
+                let multiplier = parseInt(args[1]) || 2;
+                if (multiplier < 2) multiplier = 2;
+                if (multiplier > 8) multiplier = 8;
+                
+                Settings.set('adminabuse_' + m.chat, String(multiplier));
+                await m.reply(`🔥 *ADMIN ABUSE GRUP AKTIF (x${multiplier})!* 🔥\n\nSeluruh member di grup ini sekarang mendapatkan buff:\n✨ x${multiplier} EXP\n🍀 x${multiplier} Luck\n💰 Multiplier hadiah x${multiplier} dari seluruh aktivitas!`);
+            } else {
+                Settings.set('adminabuse_' + m.chat, 'false');
+                await m.reply(`✅ *ADMIN ABUSE NONAKTIF*\n\nBuff admin abuse untuk grup ini telah dicabut.`);
+            }
         }
     }
 ];

@@ -75,16 +75,21 @@ module.exports = [
                 s[2] = s[1]; // force minor win
             }
 
-            let win = 0;
-            if (s[0]===s[1] && s[1]===s[2]) { win = s[0]==='💎' ? 5000 : s[0]==='7️⃣' ? 3000 : 1000; }
-            else if (s[0]===s[1] || s[1]===s[2] || s[0]===s[2]) { win = 250; }
-            
-            if (win > 0) { Users.addBalance(m.sender, win); Transactions.create(m.sender, 'game_win', win, 'Slot machine'); }
-            await m.reply(`🎰 *SLOT MACHINE*\n\n┃ ${s.join(' ┃ ')} ┃\n\n${win > 0 ? `🎉 MENANG! +${formatNumber(win)} balance!` : '😢 Coba lagi!'}`);
+            if (win > 0) { 
+                const { Settings } = require('../database');
+                const abuseVal = Settings.get('adminabuse_' + m.chat);
+                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                if (multiplier > 1) win *= multiplier;
+                Users.addBalance(m.sender, win); 
+                Transactions.create(m.sender, 'game_win', win, 'Slot machine'); 
+                await m.reply(`🎰 *SLOT MACHINE*\n\n┃ ${s.join(' ┃ ')} ┃\n\n🎉 MENANG! +${formatNumber(win)} balance! ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`);
+            } else {
+                await m.reply(`🎰 *SLOT MACHINE*\n\n┃ ${s.join(' ┃ ')} ┃\n\n😢 Coba lagi!`);
+            }
         }
     },
     {
-        name: 'casino', category: 'games', desc: 'Main casino (x3/x7/x12)', usage: '(nominal)',
+        name: 'casino', category: 'casino', desc: 'Main casino (x3/x7/x12)', usage: '(nominal)',
         async execute({ m, args }) {
             const cd = checkCooldown(m.sender, 'casino', 10);
             if (cd > 0) return m.reply(`⏳ Sabar! Tunggu ${cd} detik lagi untuk bermain casino.`);
@@ -112,27 +117,30 @@ module.exports = [
             jackpotChance += jackBonus;
             winChance += winBonus;
 
-            const roll = Math.random();
-            const t1 = superJackpotChance;
-            const t2 = t1 + jackpotChance;
-            const t3 = t2 + winChance;
+            const { Settings } = require('../database');
+            const abuseVal = Settings.get('adminabuse_' + m.chat);
+            const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+            const isAdminAbuse = multiplier > 1;
 
             if (roll < t1) {
-                const superWin = bet * 12;
+                let superWin = bet * 12;
+                if (isAdminAbuse) superWin *= multiplier;
                 Users.addBalance(m.sender, superWin);
                 Transactions.create(m.sender, 'casino_superjackpot', superWin, 'Casino');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🌟🌟🌟 *SUPER MEGA JACKPOT!!!* 🌟🌟🌟\n\n🍀 KEBERUNTUNGAN DEWA! Berkat luck ${formatNumber(userLuck)}, kamu mendapatkan SUPER JACKPOT!\n💰 +${formatNumber(superWin)} balance *(12x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((t1)*100).toFixed(2)}%`);
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🌟🌟🌟 *SUPER MEGA JACKPOT!!!* 🌟🌟🌟\n\n🍀 KEBERUNTUNGAN DEWA! Berkat luck ${formatNumber(userLuck)}, kamu mendapatkan SUPER JACKPOT!\n💰 +${formatNumber(superWin)} balance *(12x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((t1)*100).toFixed(2)}%`);
             } else if (roll < t2) {
-                const jackpotWin = bet * 7;
+                let jackpotWin = bet * 7;
+                if (isAdminAbuse) jackpotWin *= multiplier;
                 Users.addBalance(m.sender, jackpotWin);
                 Transactions.create(m.sender, 'casino_jackpot', jackpotWin, 'Casino');
                 Achievements.grant(m.sender, 'casino_jackpot');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(7x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((jackpotChance)*100).toFixed(2)}%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(7x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((jackpotChance)*100).toFixed(2)}%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
             } else if (roll < t3) {
-                const winAmount = bet * 3;
+                let winAmount = bet * 3;
+                if (isAdminAbuse) winAmount *= multiplier;
                 Users.addBalance(m.sender, winAmount);
                 Transactions.create(m.sender, 'casino_win', winAmount, 'Casino');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(winAmount)} balance *(3x modal!)*\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((winChance)*100).toFixed(2)}%`);
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(winAmount)} balance *(3x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((winChance)*100).toFixed(2)}%`);
             } else {
                 Users.addBalance(m.sender, -bet);
                 Transactions.create(m.sender, 'casino_lose', -bet, 'Casino');
@@ -150,7 +158,15 @@ module.exports = [
             const user = pickRandom(choices);
             let result;
             if (user === bot) result = '🤝 SERI!';
-            else if ((user==='batu'&&bot==='gunting')||(user==='gunting'&&bot==='kertas')||(user==='kertas'&&bot==='batu')) { result = '🎉 Kamu MENANG!'; Users.addBalance(m.sender, 100); }
+            else if ((user==='batu'&&bot==='gunting')||(user==='gunting'&&bot==='kertas')||(user==='kertas'&&bot==='batu')) { 
+                let reward = 100;
+                const { Settings } = require('../database');
+                const abuseVal = Settings.get('adminabuse_' + m.chat);
+                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                if (multiplier > 1) reward *= multiplier;
+                result = `🎉 Kamu MENANG!${multiplier > 1 ? ` (Admin Abuse x${multiplier}! 🔥)` : ''}`; 
+                Users.addBalance(m.sender, reward); 
+            }
             else { result = '😢 Kamu KALAH!'; }
             await m.reply(`✊✌️🖐️ *SUIT*\n\n👤 Kamu: ${emoji[user]} ${user}\n🤖 Bot: ${emoji[bot]} ${bot}\n\n${result}`);
         }
@@ -318,8 +334,13 @@ module.exports = [
                         game.board[idx] = 1;
                         if (checkWin(1)) {
                             global.activeGames.delete(moveMsg.chat);
-                            Users.addBalance(moveMsg.sender, 1000);
-                            await sck.sendMessage(moveMsg.chat, { text: `❌⭕ *HASIL*\n\n${renderBoard()}\n\n🎉 *Kamu MENANG!* +1000 balance💰` }, { quoted: moveMsg.raw });
+                            let reward = 1000;
+                            const { Settings } = require('../database');
+                            const abuseVal = Settings.get('adminabuse_' + moveMsg.chat);
+                            const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                            if (multiplier > 1) reward *= multiplier;
+                            Users.addBalance(moveMsg.sender, reward);
+                            await sck.sendMessage(moveMsg.chat, { text: `❌⭕ *HASIL*\n\n${renderBoard()}\n\n🎉 *Kamu MENANG!* +${reward} balance💰 ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}` }, { quoted: moveMsg.raw });
                             return;
                         }
                         if (isFull()) { global.activeGames.delete(moveMsg.chat); await sck.sendMessage(moveMsg.chat, { text: `❌⭕ *HASIL*\n\n${renderBoard()}\n\n🤝 *SERI!*` }, { quoted: moveMsg.raw }); return; }
@@ -376,8 +397,18 @@ module.exports = [
             const p = draw3(); const d = draw3();
             const pv = val(p); const dv = val(d);
             const win = pv > dv;
-            if (win) { Users.addBalance(m.sender, bet); } else { Users.addBalance(m.sender, -bet); }
-            await m.reply(`🎴 *SAMGONG*\n\n👤 Kamu: [${p.join(',')}] = ${pv}\n🤖 Bot: [${d.join(',')}] = ${dv}\n\n${win ? `🎉 MENANG! +${formatNumber(bet)}` : `😢 KALAH! -${formatNumber(bet)}`}`);
+            if (win) { 
+                let reward = bet;
+                const { Settings } = require('../database');
+                const abuseVal = Settings.get('adminabuse_' + m.chat);
+                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                if (multiplier > 1) reward *= multiplier;
+                Users.addBalance(m.sender, reward); 
+                await m.reply(`🎴 *SAMGONG*\n\n👤 Kamu: [${p.join(',')}] = ${pv}\n🤖 Bot: [${d.join(',')}] = ${dv}\n\n🎉 MENANG! +${formatNumber(reward)} ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`);
+            } else { 
+                Users.addBalance(m.sender, -bet); 
+                await m.reply(`🎴 *SAMGONG*\n\n👤 Kamu: [${p.join(',')}] = ${pv}\n🤖 Bot: [${d.join(',')}] = ${dv}\n\n😢 KALAH! -${formatNumber(bet)}`);
+            }
         }
     },
     {
@@ -582,12 +613,17 @@ module.exports = [
                     game.attempts = attempts;
 
                     if (guessNum === answer) {
-                        Users.addBalance(guessMsg.sender, 800);
+                        let reward = 800;
+                        const { Settings } = require('../database');
+                        const abuseVal = Settings.get('adminabuse_' + m.chat);
+                        const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                        if (multiplier > 1) reward *= multiplier;
+                        Users.addBalance(guessMsg.sender, reward);
                         global.activeGames.delete(m.chat);
                         await guessMsg.reply(
                             `🎉 *BENAR!* Angkanya *${answer}*!\n` +
                             `📊 Dicapai dalam *${attempts} percobaan*\n` +
-                            `💰 +800 balance untuk @${guessMsg.sender.split('@')[0]}!`
+                            `💰 +${reward} balance untuk @${guessMsg.sender.split('@')[0]}! ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`
                         );
                     } else if (attempts >= MAX_ATTEMPTS) {
                         global.activeGames.delete(m.chat);
@@ -841,9 +877,14 @@ module.exports = [
             if (success) {
                 const targetUser = Users.getOrCreate(target);
                 if (targetUser.balance >= amount) {
+                    let reward = amount;
+                    const { Settings } = require('../database');
+                    const abuseVal = Settings.get('adminabuse_' + m.chat);
+                    const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                    if (multiplier > 1) reward *= multiplier;
                     Users.addBalance(target, -amount);
-                    Users.addBalance(m.sender, amount);
-                    await m.reply(`🔫 Berhasil merampok @${target.split('@')[0]}!\n💰 +${formatNumber(amount)} balance`);
+                    Users.addBalance(m.sender, reward);
+                    await m.reply(`🔫 Berhasil merampok @${target.split('@')[0]}!\n💰 +${formatNumber(reward)} balance ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`);
                 } else { await m.reply(`😢 @${target.split('@')[0]} terlalu miskin untuk dirampok!`); }
             } else { 
                 await m.reply(`👮 Kamu gagal merampok dan kena tangkap!\nMasuk penjara selama 30 menit dan denda ${formatNumber(amount)} balance.`); 
@@ -861,8 +902,13 @@ module.exports = [
             const amount = randomInt(100, 500);
             const success = Math.random() > 0.5;
             if (success) { 
-                Users.addBalance(m.sender, amount); 
-                await m.reply(`🔪 Begal berhasil! +${formatNumber(amount)} balance`); 
+                let reward = amount;
+                const { Settings } = require('../database');
+                const abuseVal = Settings.get('adminabuse_' + m.chat);
+                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                if (multiplier > 1) reward *= multiplier;
+                Users.addBalance(m.sender, reward); 
+                await m.reply(`🔪 Begal berhasil! +${formatNumber(reward)} balance ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`); 
             } else { 
                 await m.reply('👮 Begal gagal! Kamu tertangkap dan dipenjara 30 menit!');
                 Users.setJail(m.sender, 30);
@@ -957,14 +1003,19 @@ module.exports = [
                         await sock.sendMessage(msg.chat, { text: render(true) + `\n\n💥 *BOOM!* Kamu kena bom di ${pick}!\n💸 Game berakhir. Total menang: ${game.score}` }, { quoted: msg.raw });
                     } else {
                         game.state[idx] = 1;
-                        game.score += 200;
-                        Users.addBalance(msg.sender, 200);
+                        let reward = 200;
+                        const { Settings } = require('../database');
+                        const abuseVal = Settings.get('adminabuse_' + msg.chat);
+                        const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                        if (multiplier > 1) reward *= multiplier;
+                        game.score += reward;
+                        Users.addBalance(msg.sender, reward);
                         
                         if(game.state.filter(x=>x===1).length === 6) {
                             global.activeGames.delete(msg.chat);
                             await sock.sendMessage(msg.chat, { text: render(true) + `\n\n🎉 *KAMU MENANG SEMPURNA!*\n💰 Total reward: ${game.score} balance.` }, { quoted: msg.raw });
                         } else {
-                            await sock.sendMessage(msg.chat, { text: render() + `\n\n✅ *Aman!* +200 balance.\n📝 Lanjut pilih kotak lain!` }, { quoted: msg.raw });
+                            await sock.sendMessage(msg.chat, { text: render() + `\n\n✅ *Aman!* +${reward} balance.\n📝 Lanjut pilih kotak lain!` }, { quoted: msg.raw });
                         }
                     }
                 }
