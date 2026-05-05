@@ -768,5 +768,66 @@ module.exports = [
             
             await m.reply(msg.trim());
         }
+    },
+    {
+        name: 'sellitem', aliases: ['sell'], category: 'rpg', desc: 'Jual item dari inventory', usage: '<id_inv>',
+        async execute({ sock, m, args }) {
+            const id = parseInt(args[0]);
+            if (isNaN(id)) return m.reply('❌ Masukkan ID item dari .inv!\nContoh: .sellitem 5');
+            
+            const itemRow = RPG.getInventoryItem(id);
+            if (!itemRow || itemRow.jid !== m.sender || itemRow.amount < 1) {
+                return m.reply('❌ Item tidak ditemukan di tas kamu!');
+            }
+            
+            try {
+                const { RARITIES, GRADES } = require('../lib/rpg');
+                const item = JSON.parse(itemRow.item_data);
+                
+                const rarity = RARITIES.find(r => r.name === item.rarity) || { mult: 1 };
+                const grade = GRADES.find(g => g.name === item.grade) || { mult: 1 };
+                
+                // Base price 500 * rarity mult * grade mult * 0.5 (sell price)
+                const price = Math.floor(500 * (rarity.mult || 1) * (grade.mult || 1) * 0.5);
+                
+                RPG.removeInventory(id, 1);
+                RPG.addCoin(m.sender, price);
+                
+                await m.reply(`💰 Berhasil menjual *${item.name}*!\n🪙 Mendapatkan: ${formatNumber(price)} Koin RPG.`);
+            } catch (e) {
+                await m.reply('❌ Gagal menjual item.');
+            }
+        }
+    },
+    {
+        name: 'equipmentlist', aliases: ['equiplist', 'listequipment'], category: 'rpg', desc: 'Lihat daftar semua equipment yang ada di RPG',
+        async execute({ sock, m }) {
+            const { RPG_SHOP, RAID_BOSSES, ITEM_TYPES, RARITIES, GRADES } = require('../lib/rpg');
+            
+            let msg = `⚔️ *DAFTAR EQUIPMENT RPG* ⚔️\n\n`;
+            
+            msg += `🛒 *ITEM TOKO (SHOP ITEMS):*\n`;
+            for (const category in RPG_SHOP) {
+                msg += `🔹 *${category.toUpperCase()}*\n`;
+                RPG_SHOP[category].forEach(item => {
+                    msg += `   • [${item.id}] ${item.name} (🪙 ${formatNumber(item.price)})\n`;
+                });
+            }
+            
+            msg += `\n🌋 *ITEM RAID (RAID DROPS):*\n`;
+            RAID_BOSSES.forEach(boss => {
+                msg += `🔸 *SET ${boss.name.toUpperCase()}*\n`;
+                for (const type in boss.drops) {
+                    msg += `   • ${boss.drops[type]} (${type})\n`;
+                }
+            });
+            
+            msg += `\n✨ *RARITIES:* ` + RARITIES.map(r => r.name).join(', ');
+            msg += `\n🏅 *GRADES:* ` + GRADES.map(g => g.name).join(', ');
+            
+            msg += `\n\n_Dapatkan item dari .attack atau .attackraid!_`;
+            
+            await m.reply(msg.trim());
+        }
     }
 ];

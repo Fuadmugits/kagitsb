@@ -544,5 +544,47 @@ module.exports = [
             }
             await m.reply(txt.trim());
         }
+    },
+    {
+        name: 'giveitem', aliases: ['gi', 'giveequip'], category: 'owner', desc: 'Berikan equipment apapun ke user', usage: '(@tag/nomor) <type> <rarity> <grade> | raid <bossId> <type> <grade>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            let jid = null;
+            let offset = 0;
+
+            if (m.mentionedJid?.[0]) {
+                jid = m.mentionedJid[0];
+                offset = 1;
+            } else if (args[0] && /^\d+$/.test(args[0])) {
+                jid = parseJid(args[0]);
+                offset = 1;
+            } else if (m.quoted?.sender) {
+                jid = m.quoted.sender;
+                offset = 0;
+            }
+
+            if (!jid) return m.reply('❌ Tag user, reply pesan, atau masukkan nomor!');
+
+            const { createCustomItem, createSpecificRaidItem, ITEM_TYPES, RARITIES, GRADES } = require('../lib/rpg');
+            let item = null;
+
+            if (args[offset]?.toLowerCase() === 'raid') {
+                const bossId = parseInt(args[offset + 1]);
+                const type = args[offset + 2]?.toLowerCase();
+                const grade = args[offset + 3]?.toUpperCase();
+                if (!bossId || !type || !grade) return m.reply('❌ Format: .giveitem @tag raid <bossId> <type> <grade>\nContoh: .giveitem @tag raid 3 weapon SSS+');
+                item = createSpecificRaidItem(bossId, type, grade);
+            } else {
+                const type = args[offset]?.toLowerCase();
+                const rarity = args[offset + 1];
+                const grade = args[offset + 2]?.toUpperCase();
+                if (!type || !rarity || !grade) return m.reply('❌ Format: .giveitem @tag <type> <rarity> <grade>\nContoh: .giveitem @tag weapon Mythic SSS+');
+                item = createCustomItem(type, rarity, grade);
+            }
+
+            if (!item) return m.reply('❌ Gagal membuat item. Pastikan type, rarity, dan grade benar!');
+
+            RPG.addInventory(jid, item.type, JSON.stringify(item));
+            await m.reply(`✅ *ITEM BERHASIL DIBERIKAN!* 🎁\n\n👤 Penerima: @${jid.split('@')[0]}\n📦 Item: ${item.name}\n✨ Rarity: ${item.rarity}\n🏅 Grade: ${item.grade}\n📊 Stats: P:${item.stats.power} D:${item.stats.defense} L:${item.stats.luck}\n\n_Item sudah dimasukkan ke inventory (.inv)_`, { mentions: [jid] });
+        }
     }
 ];
