@@ -499,5 +499,50 @@ module.exports = [
                 await m.reply('🔊 *Bot Unmuted!*\n\nBot kembali aktif dan siap melayani di grup ini.');
             }
         }
+    },
+    {
+        name: 'addcode', category: 'owner', desc: 'Buat kode redeem RPG', usage: '<code> <coin|balance|limit> <amount> [max_uses]', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            if (args.length < 3) return m.reply('❌ Format: .addcode <code> <type> <amount> [max_uses]\nContoh: .addcode MABAR coin 1000 50');
+            const code = args[0].toUpperCase();
+            const type = args[1].toLowerCase();
+            const amount = parseInt(args[2]);
+            const maxUses = parseInt(args[3]) || 0;
+            
+            if (!['coin', 'balance', 'limit'].includes(type)) return m.reply('❌ Tipe hadiah harus: coin, balance, atau limit');
+            if (isNaN(amount) || amount <= 0) return m.reply('❌ Amount harus berupa angka lebih dari 0');
+            
+            const { RedeemCodes } = require('../database');
+            const existing = RedeemCodes.get(code);
+            if (existing) return m.reply('❌ Kode tersebut sudah ada!');
+            
+            const res = RedeemCodes.create(code, type, amount, maxUses);
+            await m.reply(`✅ *KODE DIBUAT*\n\n🎟️ Kode: *${res.code}*\n🎁 Hadiah: ${amount} ${type}\n👥 Limit Pengguna: ${maxUses > 0 ? maxUses : 'Unlimited'}\n⏳ Expired: 7 Hari dari sekarang`);
+        }
+    },
+    {
+        name: 'delcode', category: 'owner', desc: 'Hapus kode redeem', usage: '<code>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            if (!args[0]) return m.reply('❌ Masukkan kodenya!');
+            const { RedeemCodes } = require('../database');
+            RedeemCodes.delete(args[0]);
+            await m.reply(`✅ Kode *${args[0].toUpperCase()}* berhasil dihapus.`);
+        }
+    },
+    {
+        name: 'listcodes', category: 'owner', desc: 'Lihat daftar kode redeem', ownerOnly: true, noLimit: true,
+        async execute({ m }) {
+            const { RedeemCodes } = require('../database');
+            const codes = RedeemCodes.list();
+            if (codes.length === 0) return m.reply('Belum ada kode redeem yang dibuat.');
+            
+            let txt = `🎟️ *DAFTAR KODE REDEEM*\n\n`;
+            for (const c of codes) {
+                const sisa = c.max_uses > 0 ? `${c.current_uses}/${c.max_uses}` : `${c.current_uses}/∞`;
+                const expired = new Date(c.expires_at).getTime() < Date.now() ? '(EXPIRED)' : '';
+                txt += `🔹 *${c.code}* ${expired}\n🎁 Hadiah: ${c.reward_amount} ${c.reward_type}\n👥 Digunakan: ${sisa}\n\n`;
+            }
+            await m.reply(txt.trim());
+        }
     }
 ];

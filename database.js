@@ -159,6 +159,25 @@ async function initDatabase() {
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_luck INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_coin INTEGER DEFAULT 0'); } catch {}
 
+    // Redeem Codes System
+    db.run(`CREATE TABLE IF NOT EXISTS redeem_codes (
+        code TEXT PRIMARY KEY,
+        reward_type TEXT NOT NULL,
+        reward_amount INTEGER NOT NULL,
+        max_uses INTEGER DEFAULT 0,
+        current_uses INTEGER DEFAULT 0,
+        expires_at TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS redeem_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        jid TEXT NOT NULL,
+        code TEXT NOT NULL,
+        redeemed_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(jid, code)
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS rpg_inventory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         jid TEXT,
@@ -815,4 +834,31 @@ const RPG = {
     }
 };
 
-module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, CustomTitles, RPG, test };
+const RedeemCodes = {
+    create(code, type, amount, maxUses = 0) {
+        // Set expiry to 7 days from now
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        run('INSERT INTO redeem_codes (code, reward_type, reward_amount, max_uses, expires_at) VALUES (?, ?, ?, ?, ?)', 
+            [code.toUpperCase(), type.toLowerCase(), amount, maxUses, expiresAt]);
+        return { code: code.toUpperCase(), type, amount, expiresAt };
+    },
+    get(code) {
+        return queryOne('SELECT * FROM redeem_codes WHERE code = ?', [code.toUpperCase()]);
+    },
+    delete(code) {
+        run('DELETE FROM redeem_codes WHERE code = ?', [code.toUpperCase()]);
+    },
+    list() {
+        return query('SELECT * FROM redeem_codes');
+    },
+    hasRedeemed(jid, code) {
+        return queryOne('SELECT * FROM redeem_history WHERE jid = ? AND code = ?', [jid, code.toUpperCase()]) != null;
+    },
+    redeem(jid, code) {
+        const c = code.toUpperCase();
+        run('INSERT INTO redeem_history (jid, code) VALUES (?, ?)', [jid, c]);
+        run('UPDATE redeem_codes SET current_uses = current_uses + 1 WHERE code = ?', [c]);
+    }
+};
+
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, CustomTitles, RPG, RedeemCodes, test };

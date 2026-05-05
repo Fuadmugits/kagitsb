@@ -580,6 +580,54 @@ module.exports = [
             });
             text += '╰──────────────';
             await m.reply(text);
+    },
+    {
+        name: 'redeem', aliases: ['claimcode'], category: 'rpg', desc: 'Tukarkan kode hadiah', usage: '<code>',
+        async execute({ m, args }) {
+            if (!args[0]) return m.reply('❌ Masukkan kode yang ingin ditukar!\nContoh: .redeem MABAR');
+            
+            const code = args[0].toUpperCase();
+            const { RedeemCodes, Users } = require('../database');
+            
+            const codeData = RedeemCodes.get(code);
+            if (!codeData) return m.reply('❌ Kode tidak valid atau tidak ditemukan!');
+            
+            // Check expiry
+            if (new Date(codeData.expires_at).getTime() < Date.now()) {
+                return m.reply('❌ Kode ini sudah kedaluwarsa (expired)!');
+            }
+            
+            // Check limit
+            if (codeData.max_uses > 0 && codeData.current_uses >= codeData.max_uses) {
+                return m.reply('❌ Kuota pemakaian kode ini sudah habis!');
+            }
+            
+            // Check history
+            if (RedeemCodes.hasRedeemed(m.sender, code)) {
+                return m.reply('❌ Kamu sudah pernah mengklaim kode ini!');
+            }
+            
+            // Grant reward
+            const amount = codeData.reward_amount;
+            const type = codeData.reward_type;
+            
+            try {
+                if (type === 'coin') {
+                    RPG.addCoin(m.sender, amount);
+                } else if (type === 'balance') {
+                    Users.addBalance(m.sender, amount);
+                } else if (type === 'limit') {
+                    Users.addLimit(m.sender, amount);
+                }
+                
+                // Redeem process
+                RedeemCodes.redeem(m.sender, code);
+                
+                await m.reply(`🎉 *KODE BERHASIL DIKLAIM!*\n\nSelamat! Kamu mendapatkan hadiah:\n🎁 *${formatNumber(amount)} ${type.toUpperCase()}*`);
+            } catch (e) {
+                console.error(e);
+                await m.reply('❌ Terjadi kesalahan saat memproses kode.');
+            }
         }
     }
 ];
