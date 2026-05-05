@@ -1,6 +1,6 @@
 const { Users, GroupLevels, RPG } = require('../database');
 const { formatNumber, randomInt, pickRandom } = require('../lib/functions');
-const { calculateTotalStats, generateItem, MONSTERS, ITEM_TYPES, RPG_SHOP, Raid } = require('../lib/rpg');
+const { calculateTotalStats, generateItem, generateRaidItem, MONSTERS, ITEM_TYPES, RPG_SHOP, Raid, RAID_BOSSES } = require('../lib/rpg');
 
 module.exports = [
     {
@@ -636,16 +636,20 @@ module.exports = [
             }
     },
     {
-        name: 'summonraid', aliases: ['startraid'], category: 'rpg', desc: 'Summon Boss Raid (Cost: 2k Coin)', groupOnly: true,
-        async execute({ sock, m }) {
+        name: 'summonraid', aliases: ['startraid'], category: 'rpg', desc: 'Summon Boss Raid (1=Weak, 2=Mid, 3=Strong)', usage: '<level>', groupOnly: true,
+        async execute({ sock, m, args }) {
             const currentRaid = Raid.getStatus(m.chat);
             if (currentRaid) return m.reply(`⚠️ Boss Raid *${currentRaid.boss}* sedang aktif di grup ini!\n🩸 HP: ${formatNumber(currentRaid.currentHp)}/${formatNumber(currentRaid.maxHp)}`);
             
-            const userCoin = RPG.getCoin(m.sender);
-            if (userCoin < 2000) return m.reply(`❌ Kamu butuh *2.000 Koin RPG* untuk summon boss raid.\n💰 Koin kamu: ${formatNumber(userCoin)}`);
+            const level = parseInt(args[0]);
+            if (![1, 2, 3].includes(level)) return m.reply('❌ Pilih level boss raid (1, 2, atau 3)!\n\n1. *Aethelgard* (Cost: 2k Coin)\n2. *Ignis Draconis* (Cost: 2.5k Coin)\n3. *Skar’Vath* (Cost: 3k Coin)');
             
-            RPG.addCoin(m.sender, -2000);
-            const res = Raid.summon(m.chat, m.sender);
+            const boss = RAID_BOSSES.find(b => b.id === level);
+            const userCoin = RPG.getCoin(m.sender);
+            if (userCoin < boss.cost) return m.reply(`❌ Kamu butuh *${formatNumber(boss.cost)} Koin RPG* untuk summon ${boss.name}.\n💰 Koin kamu: ${formatNumber(userCoin)}`);
+            
+            RPG.addCoin(m.sender, -boss.cost);
+            const res = Raid.summon(m.chat, m.sender, level);
             
             await m.reply(`🌋 *BOSS RAID TELAH MUNCUL!* 🌋\n\n👾 Boss: *${res.raid.boss}* ${res.raid.color}\n🩸 HP: *${formatNumber(res.raid.maxHp)}*\n👤 Summoner: @${m.sender.split('@')[0]}\n\nKetik *.attackraid* untuk menyerang bersama!`, { mentions: [m.sender] });
         }
@@ -680,7 +684,7 @@ module.exports = [
             }
 
             if (res.status === 'dead') {
-                let rewardMsg = `🎊 *BOSS RAID DIKALAHKAN!* 🎊\n\n👾 Boss: *${res.raid.boss}*\n\n*KONTRIBUSI HADIAH:*`;
+                let rewardMsg = `🎊 *BOSS RAID ${res.raid.boss.toUpperCase()} DIKALAHKAN!* 🎊\n\n👾 Boss: *${res.raid.boss}*\n\n*KONTRIBUSI HADIAH:*`;
                 const participants = Object.entries(res.raid.participants).sort((a, b) => b[1] - a[1]);
                 const topContributorJid = participants[0][0];
                 
@@ -689,31 +693,25 @@ module.exports = [
                     RPG.addCoin(jid, coinReward);
                     rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} Koin`;
                     
-                    // Peluang drop item untuk semua peserta (3%)
-                    if (Math.random() < 0.03) {
+                    // Peluang drop item untuk semua peserta (5%)
+                    if (Math.random() < 0.05) {
                         const itemType = pickRandom(ITEM_TYPES);
-                        const item = generateItem(itemType, 'kuat');
-                        RPG.addInventory(jid, itemType, JSON.stringify(item));
-                        rewardMsg += `\n    🎁 *DROP:* ${item.rarity} ${item.name}`;
+                        const item = generateRaidItem(res.raid.id, itemType);
+                        if (item) {
+                            RPG.addInventory(jid, itemType, JSON.stringify(item));
+                            rewardMsg += `\n    🎁 *DROP:* ${item.rarity} ${item.name} (${item.set} Set)`;
+                        }
                     }
                 }
                 
-                // Peluang khusus SECRET item untuk Top Contributor (5%)
-                if (Math.random() < 0.05) {
+                // Bonus khusus untuk Top Contributor (30% chance for another set piece)
+                if (Math.random() < 0.30) {
                     const itemType = pickRandom(ITEM_TYPES);
-                    // Force Secret rarity
-                    const item = generateItem(itemType, 'boss');
-                    item.rarity = 'Secret';
-                    item.stats.power *= 2; // Secret item from Raid is double power
-                    
-                    RPG.addInventory(topContributorJid, itemType, JSON.stringify(item));
-                    rewardMsg += `\n\n🔥 *LUCKY DROP (TOP CONTRIBUTOR):*\n✨ @${topContributorJid.split('@')[0]} mendapatkan item **SECRET**!\n📦 Item: ${item.name}`;
-                } else if (Math.random() < 0.15) {
-                    // Peluang item Rare ke atas untuk Top Contributor (15%) jika tidak dapat Secret
-                    const itemType = pickRandom(ITEM_TYPES);
-                    const item = generateItem(itemType, 'boss');
-                    RPG.addInventory(topContributorJid, itemType, JSON.stringify(item));
-                    rewardMsg += `\n\n🎁 *BONUS DROP (TOP CONTRIBUTOR):*\n✨ @${topContributorJid.split('@')[0]} mendapatkan ${item.rarity} ${item.name}`;
+                    const item = generateRaidItem(res.raid.id, itemType);
+                    if (item) {
+                        RPG.addInventory(topContributorJid, itemType, JSON.stringify(item));
+                        rewardMsg += `\n\n🏆 *LUCKY DROP (TOP CONTRIBUTOR):*\n✨ @${topContributorJid.split('@')[0]} mendapatkan bonus item set!\n📦 Item: ${item.name} (${item.rarity})`;
+                    }
                 }
                 
                 await m.reply(rewardMsg, { mentions: Object.keys(res.raid.participants) });
