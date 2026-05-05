@@ -368,12 +368,16 @@ module.exports = [
             
             const userRpg = RPG.getUser(m.sender);
             const currentLevel = userRpg['base_' + stat] || 0;
+            const currentAsc = userRpg['asc_' + stat] || 0;
             const coins = RPG.getCoin(m.sender);
             
             if (currentLevel < 100) return m.reply(`❌ Stat *${stat}* kamu belum level 100!\n📊 Level saat ini: ${currentLevel}`);
             
-            const cost = 50000;
-            if (coins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk biaya Ascension!\n💰 Butuh: 🪙 ${formatNumber(cost)}\n🪙 Koinmu: ${formatNumber(coins)}`);
+            // Cost scales 3x per ascension level
+            const baseCost = 50000;
+            const cost = baseCost * Math.pow(3, currentAsc);
+            
+            if (coins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk biaya Ascension berikutnya!\n💰 Butuh: 🪙 ${formatNumber(cost)}\n🪙 Koinmu: ${formatNumber(coins)}\n\n_Tips: Biaya naik 3x lipat setiap kali Ascension!_`);
             
             // Perform Ascension
             RPG.addCoin(m.sender, -cost);
