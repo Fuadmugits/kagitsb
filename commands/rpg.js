@@ -231,7 +231,7 @@ module.exports = [
             
             if (multiplier > 1) {
                 expGained *= multiplier;
-                koinGained = randomInt(50, 200) * multiplier; // Buffed base koin and removed /2
+                koinGained = randomInt(5, 20) * multiplier; 
             }
             
             if (koinGained > 0) RPG.addCoin(m.sender, koinGained);
@@ -1002,9 +1002,13 @@ module.exports = [
                 const topContributorJid = participants[0][0];
                 
                 for (const [jid, dmg] of participants) {
-                    const coinReward = Math.floor(dmg * 0.5); // 0.5 koin per 1 damage
+                    const coinReward = Math.floor(dmg * 0.001); // 1 koin per 1000 damage
+                    const balReward = Math.floor(dmg * 10); // 10 balance per 1 damage
+                    
                     RPG.addCoin(jid, coinReward);
-                    rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} Koin`;
+                    Users.addBalance(jid, balReward);
+                    
+                    rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} | 💵 +Rp ${formatNumber(balReward)}`;
                     
                     // Peluang drop item untuk semua peserta (Base 5% + Luck factor)
                     const stats = calculateTotalStats(jid, m.chat);
