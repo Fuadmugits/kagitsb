@@ -780,13 +780,13 @@ module.exports = [
         }
     },
     {
-        name: 'summonraid', aliases: ['startraid'], category: 'rpg', desc: 'Summon Boss Raid (1=Weak, 2=Mid, 3=Strong)', usage: '<level>', groupOnly: true,
+        name: 'summonraid', aliases: ['startraid'], category: 'rpg', desc: 'Summon Boss Raid (1-23)', usage: '<level>', groupOnly: true,
         async execute({ sock, m, args }) {
             const currentRaid = Raid.getStatus(m.chat);
             if (currentRaid) return m.reply(`⚠️ Boss Raid *${currentRaid.boss}* sedang aktif di grup ini!\n🩸 HP: ${formatNumber(currentRaid.currentHp)}/${formatNumber(currentRaid.maxHp)}`);
             
             const level = parseInt(args[0]);
-            if (![1, 2, 3].includes(level)) return m.reply('❌ Pilih level boss raid (1, 2, atau 3)!\n\n1. *Aethelgard* (Cost: 2k Coin)\n2. *Ignis Draconis* (Cost: 2.5k Coin)\n3. *Skar’Vath* (Cost: 3k Coin)');
+            if (isNaN(level) || level < 1 || level > 23) return m.reply('❌ Pilih level boss raid (1 - 23)!\nContoh: .summonraid 23\n\n_Lihat daftar bos di .raidinfo_');
             
             const boss = RAID_BOSSES.find(b => b.id === level);
             const userCoin = RPG.getCoin(m.sender);
