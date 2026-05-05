@@ -944,36 +944,56 @@ module.exports = [
             let damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
             if (multiplier > 1) damage *= multiplier;
             
-            // Damage Cap: Maksimal 5% HP Bos per serangan (HANYA 10 DETIK PERTAMA)
+            // Damage Cap: Scaling Shield Duration (+5 detik per level boss)
             const raidAge = Date.now() - raid.startTime;
-            const isCapped = raidAge < 10000;
+            const shieldDuration = 10000 + ((raid.id - 1) * 5000); 
+            const isCapped = raidAge < shieldDuration;
             const cap = Math.floor(raid.maxHp * 0.05);
             let cappedLabel = '';
             if (isCapped && damage > cap) {
                 damage = cap;
-                cappedLabel = ' (Shield 5% HP 🛡️)';
+                const remainingSec = Math.ceil((shieldDuration - raidAge) / 1000);
+                cappedLabel = ` (Shield 5% HP 🛡️ - ${remainingSec}s)`;
             }
             
-            // Boss Counter-Attack
-            const bossPower = 10 + (raid.id * 5); // scales with boss level
+            // Boss Counter-Attack & Skills
+            const bossPower = 20 + (raid.id * 15); // Scaled higher
             let bossDmg = randomInt(Math.floor(bossPower * 0.5), bossPower);
+            
+            // Boss Skill Chance (15%)
+            let skillMsg = '';
+            let extraDurabilityLoss = 0;
+            let stunEffect = 0;
+            
+            if (Math.random() < 0.15) {
+                const skills = [
+                    { name: '🔥 CRITICAL STRIKE', effect: () => { bossDmg *= 2; } },
+                    { name: '☣️ CORROSIVE CLAW', effect: () => { extraDurabilityLoss = 5; } },
+                    { name: '💫 STUN BLAST', effect: () => { stunEffect = 15000; } } // Extra 15s cooldown
+                ];
+                const skill = pickRandom(skills);
+                skill.effect();
+                skillMsg = `\n⚠️ *BOSS SKILL:* ${skill.name}!`;
+            }
+
             // Player defense reduces boss damage
-            bossDmg = Math.max(1, bossDmg - Math.floor(stats.defense / 100)); 
+            bossDmg = Math.max(5, bossDmg - Math.floor(stats.defense / 150)); 
             
             RPG.addHp(m.sender, -bossDmg);
             const currentPlayerHp = (RPG.getUser(m.sender).hp || 0);
 
             if (currentPlayerHp <= 0) {
                 RPG.setHp(m.sender, 0);
-                return m.reply(`💀 *KAMU TERLUKA PARAH!* 💀\n\nSerangan balik dari *${raid.boss}* membuatmu pingsan!\nKamu tidak bisa menyerang sementara waktu. Gunakan *.heal* untuk memulihkan diri.`);
+                return m.reply(`💀 *KAMU TERLUKA PARAH!* 💀\n\n${skillMsg}\nSerangan balik dari *${raid.boss}* sebesar *${bossDmg}* DMG membuatmu pingsan!\nKamu tidak bisa menyerang sementara waktu. Gunakan *.heal* untuk memulihkan diri.`);
             }
 
             const res = Raid.attack(m.chat, m.sender, damage);
             
             // Update cooldown di db
             const { run } = require('../database');
-            try { run(`UPDATE rpg_users SET last_raid_attack = datetime('now') WHERE jid = ?`, [m.sender]); } catch {
-                try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = datetime('now') WHERE jid = ?`, [m.sender]); } catch {}
+            const totalCooldown = (15 * 1000) + stunEffect;
+            try { run(`UPDATE rpg_users SET last_raid_attack = datetime('now', '+${totalCooldown/1000} seconds') WHERE jid = ?`, [m.sender]); } catch {
+                try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = datetime('now', '+${totalCooldown/1000} seconds') WHERE jid = ?`, [m.sender]); } catch {}
             }
 
             if (res.status === 'dead') {
@@ -1013,7 +1033,7 @@ module.exports = [
             } else {
                 const label = multiplier > 1 ? ` (Admin Abuse x${multiplier}! 🔥)` : '';
                 
-                // Decrease Durability on Raid Attack (Increased to 2 points)
+                // Decrease Durability on Raid Attack
                 const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
                 const userRpg = RPG.getUser(m.sender);
                 for (const slot of slots) {
@@ -1021,7 +1041,7 @@ module.exports = [
                         try {
                             const item = JSON.parse(userRpg[slot]);
                             if (item.durability > 0) {
-                                item.durability -= 2;
+                                item.durability -= (2 + extraDurabilityLoss);
                                 if (item.durability < 0) item.durability = 0;
                                 RPG.updateEquip(m.sender, slot, JSON.stringify(item));
                             }
@@ -1029,7 +1049,7 @@ module.exports = [
                     }
                 }
 
-                await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}${cappedLabel}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*\n❤️ HP Kamu: ${currentPlayerHp} (-${bossDmg})`);
+                await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}${cappedLabel}${skillMsg}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*\n❤️ HP Kamu: ${currentPlayerHp} (-${bossDmg})`);
             }
         }
     },
