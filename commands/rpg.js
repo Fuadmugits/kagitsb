@@ -897,6 +897,14 @@ module.exports = [
             let damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
             if (multiplier > 1) damage *= multiplier;
             
+            // Damage Cap: Maksimal 5% HP Bos per serangan (mencegah 1-shot dari Admin Abuse ekstrim)
+            const cap = Math.floor(raid.maxHp * 0.05);
+            let cappedLabel = '';
+            if (damage > cap) {
+                damage = cap;
+                cappedLabel = ' (Capped 5% HP 🛡️)';
+            }
+            
             const res = Raid.attack(m.chat, m.sender, damage);
             
             // Update cooldown di db
@@ -957,7 +965,7 @@ module.exports = [
                     }
                 }
 
-                await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*`);
+                await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}${cappedLabel}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*`);
             }
         }
     },
