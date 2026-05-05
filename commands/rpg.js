@@ -448,37 +448,50 @@ module.exports = [
             await sock.sendMessage(m.key.remoteJid, { text: `🏃‍♂️ @${m.sender.split('@')[0]} menolak tantangan PvP dari @${challenge.challenger.split('@')[0]}.`, mentions: [m.sender, challenge.challenger] });
         }
     },
-    {
-        name: 'upgrade', category: 'rpg', desc: 'Upgrade stat dasar (power/defense/luck)', usage: '<stat>',
-        async execute({ sock, m, args }) {
             const stat = args[0]?.toLowerCase();
             const valid = ['power', 'defense', 'luck'];
             if (!valid.includes(stat)) return m.reply('❌ Pilih stat yang ingin di-upgrade: power, defense, atau luck.\nContoh: .upgrade power');
             
-            const userRpg = RPG.getUser(m.sender);
-            const currentStat = userRpg[`base_${stat}`] || (stat === 'luck' ? 0 : 10);
+            const isAll = args[1]?.toLowerCase() === 'all';
+            let user = Users.getOrCreate(m.sender);
+            let userRpg = RPG.getUser(m.sender);
             
-            // Cost calculation
-            let cost = 0;
-            if (stat === 'power') {
-                cost = 50000 + (currentStat * currentStat * 50); // Exponential cost
-            } else if (stat === 'luck') {
-                cost = 100000 + (currentStat * currentStat * 100); // 2x lebih mahal
-            } else if (stat === 'defense') {
-                cost = 30000 + (currentStat * currentStat * 30); // Lebih murah dari power
+            const getCost = (s, val) => {
+                if (s === 'power') return 50000 + (val * val * 50);
+                if (s === 'luck') return 100000 + (val * val * 100);
+                if (s === 'defense') return 30000 + (val * val * 30);
+                return 0;
+            };
+
+            const incPerLevel = stat === 'luck' ? 5 : 50;
+            let totalCost = 0;
+            let levelsBought = 0;
+            let tempStat = userRpg[`base_${stat}`] || (stat === 'luck' ? 0 : 10);
+            let tempBalance = user.balance;
+
+            if (isAll) {
+                while (true) {
+                    let nextCost = getCost(stat, tempStat);
+                    if (tempBalance >= nextCost) {
+                        tempBalance -= nextCost;
+                        totalCost += nextCost;
+                        tempStat += incPerLevel;
+                        levelsBought++;
+                    } else {
+                        break;
+                    }
+                }
+                if (levelsBought === 0) return m.reply(`❌ Balance tidak cukup untuk upgrade bahkan 1 level!\n💰 Butuh: Rp ${formatNumber(getCost(stat, tempStat))}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+            } else {
+                totalCost = getCost(stat, tempStat);
+                if (tempBalance < totalCost) return m.reply(`❌ Balance kurang!\n💰 Butuh: Rp ${formatNumber(totalCost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+                levelsBought = 1;
             }
+
+            Users.addBalance(m.sender, -totalCost);
+            RPG.upgradeBaseStat(m.sender, stat, incPerLevel * levelsBought);
             
-            const user = Users.getOrCreate(m.sender);
-            
-            if (user.balance < cost) {
-                return m.reply(`❌ Balance kurang!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}\n\n_Semakin tinggi stat, semakin mahal biaya upgrade-nya._`);
-            }
-            
-            Users.addBalance(m.sender, -cost);
-            const inc = stat === 'luck' ? 5 : 50;
-            RPG.upgradeBaseStat(m.sender, stat, inc);
-            
-            await m.reply(`✅ *UPGRADE BERHASIL*\n\n📈 Base ${stat.toUpperCase()} meningkat (+${inc})!\n💸 Biaya: Rp ${formatNumber(cost)}\n💳 Sisa Saldo: Rp ${formatNumber(Users.get(m.sender).balance)}`);
+            await m.reply(`✅ *UPGRADE BERHASIL*\n\n📈 Base ${stat.toUpperCase()} meningkat (+${incPerLevel * levelsBought}) [${levelsBought}x Upgrade]!\n💸 Total Biaya: Rp ${formatNumber(totalCost)}\n💳 Sisa Saldo: Rp ${formatNumber(Users.get(m.sender).balance)}`);
         }
     },
     {
@@ -770,9 +783,38 @@ module.exports = [
         }
     },
     {
-        name: 'sellitem', aliases: ['sell'], category: 'rpg', desc: 'Jual item dari inventory', usage: '<id_inv>',
+        name: 'sellitem', aliases: ['sell'], category: 'rpg', desc: 'Jual item dari inventory', usage: '<id_inv/all>',
         async execute({ sock, m, args }) {
-            const id = parseInt(args[0]);
+            const arg = args[0]?.toLowerCase();
+            if (!arg) return m.reply('❌ Masukkan ID item dari .inv atau ketik "all"!\nContoh: .sellitem 5 atau .sellitem all');
+            
+            const { RARITIES, GRADES } = require('../lib/rpg');
+            
+            if (arg === 'all') {
+                const items = RPG.getInventory(m.sender);
+                if (!items.length) return m.reply('🎒 Tas kamu kosong, tidak ada yang bisa dijual.');
+                
+                let totalSold = 0;
+                let totalIncome = 0;
+                
+                for (const row of items) {
+                    try {
+                        const item = JSON.parse(row.item_data);
+                        const rarity = RARITIES.find(r => r.name === item.rarity) || { mult: 1 };
+                        const grade = GRADES.find(g => g.name === item.grade) || { mult: 1 };
+                        const price = Math.floor(500 * (rarity.mult || 1) * (grade.mult || 1) * 0.5);
+                        
+                        RPG.removeInventory(row.id, row.amount);
+                        totalIncome += price * row.amount;
+                        totalSold++;
+                    } catch (e) {}
+                }
+                
+                RPG.addCoin(m.sender, totalIncome);
+                return m.reply(`💰 *CUCI GUDANG BERHASIL!*\n\n📦 Total item dijual: ${totalSold}\n🪙 Total pendapatan: ${formatNumber(totalIncome)} Koin RPG.`);
+            }
+
+            const id = parseInt(arg);
             if (isNaN(id)) return m.reply('❌ Masukkan ID item dari .inv!\nContoh: .sellitem 5');
             
             const itemRow = RPG.getInventoryItem(id);
@@ -781,13 +823,9 @@ module.exports = [
             }
             
             try {
-                const { RARITIES, GRADES } = require('../lib/rpg');
                 const item = JSON.parse(itemRow.item_data);
-                
                 const rarity = RARITIES.find(r => r.name === item.rarity) || { mult: 1 };
                 const grade = GRADES.find(g => g.name === item.grade) || { mult: 1 };
-                
-                // Base price 500 * rarity mult * grade mult * 0.5 (sell price)
                 const price = Math.floor(500 * (rarity.mult || 1) * (grade.mult || 1) * 0.5);
                 
                 RPG.removeInventory(id, 1);

@@ -98,8 +98,8 @@ module.exports = [
             const cd = checkCooldown(m.sender, 'casino', 10);
             if (cd > 0) return m.reply(`⏳ Sabar! Tunggu ${cd} detik lagi untuk bermain casino.`);
             
-            const bet = parseInt(args[0]) || 100;
             const user = Users.getOrCreate(m.sender, m.pushName);
+            let bet = args[0]?.toLowerCase() === 'all' ? user.balance : parseInt(args[0]) || 100;
             if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
             if (bet < 100) return m.reply('❌ Minimal bet 100!');
 
@@ -398,8 +398,8 @@ module.exports = [
     {
         name: 'samgong', category: 'games', desc: 'Main Samgong', usage: '(nominal)',
         async execute({ m, args }) {
-            const bet = parseInt(args[0]) || 100;
             const user = Users.getOrCreate(m.sender, m.pushName);
+            const bet = args[0]?.toLowerCase() === 'all' ? user.balance : parseInt(args[0]) || 100;
             if (user.balance < bet) return m.reply('❌ Balance tidak cukup!');
             const draw3 = () => [randomInt(1,10),randomInt(1,10),randomInt(1,10)];
             const val = cards => cards.reduce((a,b)=>a+b,0) % 10;
