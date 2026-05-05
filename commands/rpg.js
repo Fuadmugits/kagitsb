@@ -198,8 +198,9 @@ module.exports = [
             // Victory
             let reply = `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
             
-            // Check drops
-            if (Math.random() < monster.dropChance) {
+            // Check drops with luck factor
+            const dropChance = monster.dropChance * (1 + (stats.luck / 200)); // Every 200 luck doubles drop chance
+            if (Math.random() < dropChance) {
                 const dropType = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
                 const item = generateItem(dropType, monster.class);
                 if (item) {
@@ -714,8 +715,10 @@ module.exports = [
                     RPG.addCoin(jid, coinReward);
                     rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} Koin`;
                     
-                    // Peluang drop item untuk semua peserta (5%)
-                    if (Math.random() < 0.05) {
+                    // Peluang drop item untuk semua peserta (Base 5% + Luck factor)
+                    const stats = calculateTotalStats(jid, m.chat);
+                    const raidDropChance = 0.05 * (1 + (stats.luck / 500)); // Every 500 luck doubles raid drop chance
+                    if (Math.random() < raidDropChance) {
                         const itemType = pickRandom(ITEM_TYPES);
                         const item = generateRaidItem(res.raid.id, itemType);
                         if (item) {
