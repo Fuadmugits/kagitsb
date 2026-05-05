@@ -184,8 +184,8 @@ module.exports = [
             const userRpg = RPG.getUser(m.sender);
             if (userRpg.last_attack) {
                 const last = new Date(userRpg.last_attack).getTime();
-                if (Date.now() - last < 3.5 * 60 * 1000) {
-                    const sisa = Math.ceil((3.5 * 60 * 1000 - (Date.now() - last)) / 1000);
+                if (Date.now() - last < 30 * 1000) {
+                    const sisa = Math.ceil((30 * 1000 - (Date.now() - last)) / 1000);
                     return m.reply(`⏳ Kamu sedang istirahat. Tunggu ${sisa} detik lagi.`);
                 }
             }
@@ -303,8 +303,8 @@ module.exports = [
             const userRpg = RPG.getUser(m.sender);
             if (userRpg.last_mine) {
                 const last = new Date(userRpg.last_mine).getTime();
-                if (Date.now() - last < 3 * 60 * 1000) { // 3 mins cooldown
-                    const sisa = Math.ceil((3 * 60 * 1000 - (Date.now() - last)) / 1000);
+                if (Date.now() - last < 30 * 1000) { // 30 seconds cooldown
+                    const sisa = Math.ceil((30 * 1000 - (Date.now() - last)) / 1000);
                     return m.reply(`⏳ Stamina habis! Tunggu ${sisa} detik lagi.`);
                 }
             }
