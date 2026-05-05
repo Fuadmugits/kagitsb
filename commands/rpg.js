@@ -729,7 +729,7 @@ module.exports = [
             }
 
             Users.addBalance(m.sender, -totalCost);
-            RPG.upgradeBaseStat(m.sender, stat, incPerLevel * levelsBought);
+            RPG.addStat(m.sender, stat, incPerLevel * levelsBought);
             
             await m.reply(`✅ *UPGRADE BERHASIL*\n\n📈 Base ${stat.toUpperCase()} meningkat (+${incPerLevel * levelsBought}) [${levelsBought}x Upgrade]!\n💸 Total Biaya: Rp ${formatNumber(totalCost)}\n💳 Sisa Saldo: Rp ${formatNumber(Users.get(m.sender).balance)}`);
         }
