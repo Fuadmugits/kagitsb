@@ -439,7 +439,8 @@ module.exports = [
                 
                 const effect = itemData.stats.effect;
                 const isAll = args[1]?.toLowerCase() === 'all';
-                const count = isAll ? itemRow.amount : 1;
+                const argCount = parseInt(args[1]);
+                const count = isAll ? itemRow.amount : (!isNaN(argCount) && argCount > 0 ? Math.min(argCount, itemRow.amount) : 1);
                 
                 let totalReply = `✨ *MENGGUNAKAN ${count}x ${itemData.name.toUpperCase()}* ✨\n\n`;
                 let totalBal = 0;
@@ -483,10 +484,15 @@ module.exports = [
                     totalReply += `💸 Total Balance didapat: Rp ${formatNumber(totalBal)}`;
                 }
                 
-                if (totalBal > 0) Users.addBalance(m.sender, totalBal);
+                if (totalBal > 0) {
+                    Users.addBalance(m.sender, totalBal);
+                    const { Transactions } = require('../database');
+                    Transactions.create(m.sender, 'mystery_box', totalBal, `Reward dari ${count}x Mystery Box`);
+                }
                 if (totalCoins > 0) RPG.addCoin(m.sender, totalCoins);
                 
                 RPG.removeInventory(id, count);
+                totalReply += `\n\n✅ *SELESAI!* Sisa item di tas: ${itemRow.amount - count}`;
                 await m.reply(totalReply.trim());
             } catch (e) {
                 console.error(e);
