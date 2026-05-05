@@ -128,7 +128,9 @@ module.exports = [
                 if (userRpg[slot]) {
                     try {
                         const item = JSON.parse(userRpg[slot]);
-                        itemName = `${item.name} ${item.grade}`;
+                        const dur = item.durability ?? 100;
+                        const durIcon = dur > 50 ? '🟢' : dur > 20 ? '🟡' : '🔴';
+                        itemName = `${item.name} ${item.grade} (${durIcon} ${dur}%)`;
                     } catch(e) {}
                 }
                 const icon = slot === 'weapon' ? '🗡️' : slot === 'helmet' ? '🪖' : slot === 'armor' ? '🦺' : slot === 'glove' ? '🧤' : slot === 'legging' ? '👖' : '🥾';

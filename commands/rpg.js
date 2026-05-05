@@ -1008,8 +1008,24 @@ module.exports = [
             msg += `• 3/5 Set: +10% Power & Defense\n`;
             msg += `• 5/5 Set: +25% Power & Defense\n\n`;
             msg += `_Gunakan *.summonraid <level>* untuk memanggil boss!_`;
-            
             await m.reply(msg.trim());
+        }
+    },
+    {
+        name: 'surrenderraid', aliases: ['giveupraid', 'cancelraid'], category: 'rpg', desc: 'Menyerah dan hentikan Boss Raid yang sedang berlangsung', groupOnly: true,
+        async execute({ sock, m }) {
+            const raid = Raid.getStatus(m.chat);
+            if (!raid) return m.reply('❌ Tidak ada Boss Raid yang sedang aktif.');
+            
+            const { isOwner } = require('../lib/functions');
+            const isAdm = m.isAdmin || isOwner(m.sender);
+            const isSummoner = raid.summonedBy === m.sender;
+            
+            if (!isAdm && !isSummoner) return m.reply('❌ Hanya Summoner atau Admin grup yang bisa membatalkan Raid!');
+            
+            Raid.stop(m.chat);
+            
+            await m.reply(`🏳️ *RAID DIBATALKAN* 🏳️\n\nBoss *${raid.boss}* telah meninggalkan arena karena kalian menyerah. Tidak ada hadiah yang diberikan.`);
         }
     },
     {
