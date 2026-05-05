@@ -580,6 +580,7 @@ module.exports = [
             });
             text += '╰──────────────';
             await m.reply(text);
+        }
     },
     {
         name: 'redeem', aliases: ['claimcode'], category: 'rpg', desc: 'Tukarkan kode hadiah', usage: '<code>',
