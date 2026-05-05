@@ -374,7 +374,7 @@ module.exports = [
             if (currentLevel < 100) return m.reply(`❌ Stat *${stat}* kamu belum level 100!\n📊 Level saat ini: ${currentLevel}`);
             
             // Cost scales 3x per ascension level
-            const baseCost = 50000;
+            const baseCost = 1000000;
             const cost = baseCost * Math.pow(3, currentAsc);
             
             if (coins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk biaya Ascension berikutnya!\n💰 Butuh: 🪙 ${formatNumber(cost)}\n🪙 Koinmu: ${formatNumber(coins)}\n\n_Tips: Biaya naik 3x lipat setiap kali Ascension!_`);
@@ -397,7 +397,7 @@ module.exports = [
             
             if (userRpg.hp >= maxHp) return m.reply('❤️ HP kamu sudah penuh!');
             
-            const cost = 500;
+            const cost = 25000;
             if (u.balance < cost) return m.reply(`❌ Balance tidak cukup untuk biaya pengobatan!\n💰 Butuh: Rp ${formatNumber(cost)}`);
             
             Users.addBalance(m.sender, -cost);
@@ -424,7 +424,7 @@ module.exports = [
             
             if (itemsToRepair.length === 0) return m.reply('✅ Semua equipment kamu masih dalam kondisi prima!');
             
-            const costPerItem = 2000;
+            const costPerItem = 50000;
             const totalCost = itemsToRepair.length * costPerItem;
             const coins = RPG.getCoin(m.sender);
             
@@ -681,9 +681,9 @@ module.exports = [
             let userRpg = RPG.getUser(m.sender);
             
             const getCost = (s, val) => {
-                if (s === 'power') return 50000 + (val * val * 50);
-                if (s === 'luck') return 100000 + (val * val * 100);
-                if (s === 'defense') return 30000 + (val * val * 30);
+                if (s === 'power') return 250000 + (val * val * 500);
+                if (s === 'luck') return 500000 + (val * val * 1000);
+                if (s === 'defense') return 150000 + (val * val * 300);
                 return 0;
             };
 
@@ -760,7 +760,7 @@ module.exports = [
             const amount = parseInt(args[0]);
             if (isNaN(amount) || amount < 1) return m.reply('❌ Masukkan jumlah koin RPG yang ingin dibeli.\nContoh: .buyrpgcoin 5');
             
-            const cost = amount * 50000;
+            const cost = amount * 1000000;
             const user = Users.getOrCreate(m.sender);
             if (user.balance < cost) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
             
