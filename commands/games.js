@@ -134,22 +134,28 @@ module.exports = [
             if (roll < t1) {
                 let superWin = bet * 12;
                 if (isAdminAbuse) superWin *= multiplier;
-                Users.addBalance(m.sender, superWin);
-                Transactions.create(m.sender, 'casino_superjackpot', superWin, 'Casino');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🌟🌟🌟 *SUPER MEGA JACKPOT!!!* 🌟🌟🌟\n\n🍀 KEBERUNTUNGAN DEWA! Berkat luck ${formatNumber(userLuck)}, kamu mendapatkan SUPER JACKPOT!\n💰 +${formatNumber(superWin)} balance *(12x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((t1)*100).toFixed(2)}%`);
+                const tax = Math.floor(superWin * 0.05);
+                const finalWin = superWin - tax;
+                Users.addBalance(m.sender, finalWin);
+                Transactions.create(m.sender, 'casino_superjackpot', finalWin, 'Casino (Tax: 5%)');
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🌟🌟🌟 *SUPER MEGA JACKPOT!!!* 🌟🌟🌟\n\n🍀 KEBERUNTUNGAN DEWA! Berkat luck ${formatNumber(userLuck)}, kamu mendapatkan SUPER JACKPOT!\n💰 +${formatNumber(finalWin)} balance *(12x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n🏛️ Pajak 5%: -${formatNumber(tax)}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((t1)*100).toFixed(2)}%`);
             } else if (roll < t2) {
                 let jackpotWin = bet * 7;
                 if (isAdminAbuse) jackpotWin *= multiplier;
-                Users.addBalance(m.sender, jackpotWin);
-                Transactions.create(m.sender, 'casino_jackpot', jackpotWin, 'Casino');
+                const tax = Math.floor(jackpotWin * 0.05);
+                const finalWin = jackpotWin - tax;
+                Users.addBalance(m.sender, finalWin);
+                Transactions.create(m.sender, 'casino_jackpot', finalWin, 'Casino (Tax: 5%)');
                 Achievements.grant(m.sender, 'casino_jackpot');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(jackpotWin)} balance *(7x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((jackpotChance)*100).toFixed(2)}%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎊🎊🎊 *JJJACKPOT!!!* 🎊🎊🎊\n\n🍀 LUAR BIASA! Kamu mendapatkan MEGA JACKPOT!\n💰 +${formatNumber(finalWin)} balance *(7x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n🏛️ Pajak 5%: -${formatNumber(tax)}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((jackpotChance)*100).toFixed(2)}%\n\n🏅 _Badge "Penjudi Ulung" telah kamu dapatkan!_`);
             } else if (roll < t3) {
                 let winAmount = bet * 3;
                 if (isAdminAbuse) winAmount *= multiplier;
-                Users.addBalance(m.sender, winAmount);
-                Transactions.create(m.sender, 'casino_win', winAmount, 'Casino');
-                await m.reply(`🎰 *CASINO ROYALE*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(winAmount)} balance *(3x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((winChance)*100).toFixed(2)}%`);
+                const tax = Math.floor(winAmount * 0.05);
+                const finalWin = winAmount - tax;
+                Users.addBalance(m.sender, finalWin);
+                Transactions.create(m.sender, 'casino_win', finalWin, 'Casino (Tax: 5%)');
+                await m.reply(`🎰 *CASINO ROYALE*\n\n🎉 Kamu MENANG!\n💰 +${formatNumber(finalWin)} balance *(3x modal!)* ${isAdminAbuse ? `\n🔥 *ADMIN ABUSE x${multiplier} ACTIVE!*` : ''}\n🏛️ Pajak 5%: -${formatNumber(tax)}\n📊 Modal: ${formatNumber(bet)}\n🎲 Chance: ${((winChance)*100).toFixed(2)}%`);
             } else {
                 Users.addBalance(m.sender, -bet);
                 Transactions.create(m.sender, 'casino_lose', -bet, 'Casino');

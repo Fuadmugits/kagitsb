@@ -242,6 +242,21 @@ module.exports = [
                 reply += `\n🌟 *LEVEL UP!* Kamu naik ke Level ${expResult.newLevel}! 🌟`;
             }
             
+            // Decrease Durability
+            const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
+            for (const slot of slots) {
+                if (userRpg[slot]) {
+                    try {
+                        const item = JSON.parse(userRpg[slot]);
+                        if (item.durability > 0) {
+                            item.durability -= 1;
+                            RPG.updateEquip(m.sender, slot, JSON.stringify(item));
+                            if (item.durability === 0) reply += `\n\n⚠️ *WARNING:* Item *${item.name}* (${slot}) kamu hancur (0% Durability)! Stat tidak lagi aktif. Gunakan .repair untuk memperbaikinya.`;
+                        }
+                    } catch (e) {}
+                }
+            }
+            
             await m.reply(reply);
         }
     },
@@ -342,6 +357,65 @@ module.exports = [
                 
                 await m.reply(`✅ *UPGRADE BERHASIL!*\n\n📈 Stat: ${stat.toUpperCase()}\n🆙 Level: ${currentLevel} -> ${currentLevel + 1}\n💰 Biaya: Rp ${formatNumber(cost)}\n💳 Sisa Saldo: Rp ${formatNumber(user.balance - cost)}`);
             }
+        }
+    },
+    {
+        name: 'ascension', aliases: ['ascend', 'rebirth'], category: 'rpg', desc: 'Reset stat level untuk mendapatkan multiplier permanen (x1.1)', usage: '<stat>',
+        async execute({ sock, m, args }) {
+            const stat = args[0]?.toLowerCase();
+            const valid = ['power', 'defense', 'luck'];
+            if (!valid.includes(stat)) return m.reply('❌ Pilih stat yang ingin di-ascend: power, defense, atau luck!\n\n📌 *SYARAT:* Stat level harus minimal 100.\n📌 *BIAYA:* 50.000 Koin RPG.\n📌 *HASIL:* Stat level balik ke 0, tapi kamu dapat multiplier +10% permanen.');
+            
+            const userRpg = RPG.getUser(m.sender);
+            const currentLevel = userRpg['base_' + stat] || 0;
+            const coins = RPG.getCoin(m.sender);
+            
+            if (currentLevel < 100) return m.reply(`❌ Stat *${stat}* kamu belum level 100!\n📊 Level saat ini: ${currentLevel}`);
+            
+            const cost = 50000;
+            if (coins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk biaya Ascension!\n💰 Butuh: 🪙 ${formatNumber(cost)}\n🪙 Koinmu: ${formatNumber(coins)}`);
+            
+            // Perform Ascension
+            RPG.addCoin(m.sender, -cost);
+            RPG.resetStat(m.sender, stat); // Custom function to reset level and add asc level
+            
+            const newAsc = (userRpg['asc_' + stat] || 0) + 1;
+            
+            await m.reply(`✨ *ASCENSION BERHASIL!* ✨\n\n🌌 Stat *${stat.toUpperCase()}* kamu telah berevolusi!\n🆙 Ascension Level: ${newAsc}\n⚡ Multiplier Stat: x${(1 + newAsc * 0.1).toFixed(1)}\n💰 Biaya: 🪙 ${formatNumber(cost)}\n📊 Base Level reset ke 0.`);
+        }
+    },
+    {
+        name: 'repair', aliases: ['perbaiki', 'service'], category: 'rpg', desc: 'Perbaiki semua equipment yang terpakai',
+        async execute({ sock, m }) {
+            const userRpg = RPG.getUser(m.sender);
+            const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
+            let itemsToRepair = [];
+            
+            for (const slot of slots) {
+                if (userRpg[slot]) {
+                    const item = JSON.parse(userRpg[slot]);
+                    if (item.durability < 100) {
+                        itemsToRepair.push({ slot, item });
+                    }
+                }
+            }
+            
+            if (itemsToRepair.length === 0) return m.reply('✅ Semua equipment kamu masih dalam kondisi prima!');
+            
+            const costPerItem = 2000;
+            const totalCost = itemsToRepair.length * costPerItem;
+            const coins = RPG.getCoin(m.sender);
+            
+            if (coins < totalCost) return m.reply(`❌ Koin RPG tidak cukup!\n💰 Biaya: 🪙 ${formatNumber(totalCost)} untuk ${itemsToRepair.length} item.\n🪙 Koinmu: ${formatNumber(coins)}`);
+            
+            RPG.addCoin(m.sender, -totalCost);
+            
+            for (const { slot, item } of itemsToRepair) {
+                item.durability = 100;
+                RPG.updateEquip(m.sender, slot, JSON.stringify(item));
+            }
+            
+            await m.reply(`🛠️ *REPARASI SELESAI!* 🛠️\n\nBerhasil memperbaiki *${itemsToRepair.length}* equipment.\n💰 Total biaya: 🪙 ${formatNumber(totalCost)}\n\n_Equipment kamu kini memiliki durability 100% dan stat kembali aktif!_`);
         }
     },
     {
@@ -867,6 +941,22 @@ module.exports = [
                 await m.reply(rewardMsg, { mentions: Object.keys(res.raid.participants) });
             } else {
                 const label = multiplier > 1 ? ` (Admin Abuse x${multiplier}! 🔥)` : '';
+                
+                // Decrease Durability on Raid Attack
+                const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
+                const userRpg = RPG.getUser(m.sender);
+                for (const slot of slots) {
+                    if (userRpg[slot]) {
+                        try {
+                            const item = JSON.parse(userRpg[slot]);
+                            if (item.durability > 0) {
+                                item.durability -= 1;
+                                RPG.updateEquip(m.sender, slot, JSON.stringify(item));
+                            }
+                        } catch (e) {}
+                    }
+                }
+
                 await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*`);
             }
         }

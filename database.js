@@ -151,13 +151,21 @@ async function initDatabase() {
         base_power INTEGER DEFAULT 10,
         base_defense INTEGER DEFAULT 10,
         base_luck INTEGER DEFAULT 0,
-        rpg_coin INTEGER DEFAULT 0
+        rpg_coin INTEGER DEFAULT 0,
+        asc_power INTEGER DEFAULT 0,
+        asc_defense INTEGER DEFAULT 0,
+        asc_luck INTEGER DEFAULT 0,
+        last_raid_attack TEXT
     )`);
 
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_power INTEGER DEFAULT 10'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_defense INTEGER DEFAULT 10'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_luck INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_coin INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_power INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_defense INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_luck INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT'); } catch {}
 
     // Redeem Codes System
     db.run(`CREATE TABLE IF NOT EXISTS gift_codes (
@@ -789,10 +797,16 @@ const RPG = {
         run(`UPDATE rpg_users SET ${slot} = ? WHERE jid = ?`, [itemDataJSON, jid]);
         return true;
     },
-    upgradeBaseStat(jid, statType, amount) {
+    addStat(jid, statType, amount) {
         const validStats = ['power', 'defense', 'luck'];
         if (!validStats.includes(statType)) return false;
         run(`UPDATE rpg_users SET base_${statType} = base_${statType} + ? WHERE jid = ?`, [amount, jid]);
+        return true;
+    },
+    resetStat(jid, statType) {
+        const validStats = ['power', 'defense', 'luck'];
+        if (!validStats.includes(statType)) return false;
+        run(`UPDATE rpg_users SET base_${statType} = 0, asc_${statType} = asc_${statType} + 1 WHERE jid = ?`, [jid]);
         return true;
     },
     resetRPG() {
