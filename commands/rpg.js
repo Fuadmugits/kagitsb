@@ -669,6 +669,9 @@ module.exports = [
             let tempStat = userRpg[`base_${stat}`] || (stat === 'luck' ? 0 : 10);
             let tempBalance = user.balance;
 
+            const argCount = parseInt(args[1]);
+            const isSpecific = !isNaN(argCount) && argCount > 0;
+
             if (isAll) {
                 while (true) {
                     let nextCost = getCost(stat, tempStat);
@@ -682,6 +685,19 @@ module.exports = [
                     }
                 }
                 if (levelsBought === 0) return m.reply(`❌ Balance tidak cukup untuk upgrade bahkan 1 level!\n💰 Butuh: Rp ${formatNumber(getCost(stat, tempStat))}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+            } else if (isSpecific) {
+                for (let i = 0; i < argCount; i++) {
+                    let nextCost = getCost(stat, tempStat);
+                    if (tempBalance >= nextCost) {
+                        tempBalance -= nextCost;
+                        totalCost += nextCost;
+                        tempStat += incPerLevel;
+                        levelsBought++;
+                    } else {
+                        break;
+                    }
+                }
+                if (levelsBought < argCount) return m.reply(`❌ Balance tidak cukup untuk upgrade *${argCount}* level!\n💰 Hanya mampu: ${levelsBought} level.\n💵 Sisa saldo: Rp ${formatNumber(tempBalance)}`);
             } else {
                 totalCost = getCost(stat, tempStat);
                 if (tempBalance < totalCost) return m.reply(`❌ Balance kurang!\n💰 Butuh: Rp ${formatNumber(totalCost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
@@ -772,8 +788,11 @@ module.exports = [
             if (coins < selectedItem.price) return m.reply(`❌ Koin RPG tidak cukup!\n💰 Butuh: 🪙 ${formatNumber(selectedItem.price)}\n🪙 Koinmu: ${formatNumber(coins)}`);
             
             const isAll = args[1]?.toLowerCase() === 'all';
-            const count = isAll ? Math.floor(coins / selectedItem.price) : 1;
+            const argCount = parseInt(args[1]);
+            const count = isAll ? Math.floor(coins / selectedItem.price) : (!isNaN(argCount) && argCount > 0 ? argCount : 1);
+            
             const totalCost = count * selectedItem.price;
+            if (coins < totalCost) return m.reply(`❌ Koin RPG tidak cukup untuk membeli *${count}x* item!\n💰 Butuh: 🪙 ${formatNumber(totalCost)}\n🪙 Koinmu: 🪙 ${formatNumber(coins)}`);
             
             RPG.addCoin(m.sender, -totalCost);
             
