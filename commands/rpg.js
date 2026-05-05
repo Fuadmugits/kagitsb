@@ -1080,12 +1080,22 @@ module.exports = [
         }
     },
     {
-        name: 'raidinfo', aliases: ['tierlist', 'bossinfo'], category: 'rpg', desc: 'Lihat tier list Boss Raid',
-        async execute({ sock, m }) {
-            let msg = `🏆 *RPG BOSS RAID TIER LIST* 🏆\n\n`;
+        name: 'raidinfo', aliases: ['tierlist', 'bossinfo'], category: 'rpg', desc: 'Lihat tier list Boss Raid', usage: '[halaman]',
+        async execute({ sock, m, args }) {
+            const page = parseInt(args[0]) || 1;
+            const perPage = 10;
+            const totalPages = Math.ceil(RAID_BOSSES.length / perPage);
             
-            RAID_BOSSES.forEach((b, i) => {
-                msg += `${i + 1}. *${b.name}* ${b.color}\n`;
+            if (page > totalPages) return m.reply(`❌ Halaman tidak ditemukan! Maksimal halaman: ${totalPages}`);
+            
+            let msg = `🏆 *RPG BOSS RAID TIER LIST (Hal ${page}/${totalPages})* 🏆\n\n`;
+            
+            const start = (page - 1) * perPage;
+            const end = start + perPage;
+            const bossesToShow = RAID_BOSSES.slice(start, end);
+            
+            bossesToShow.forEach((b, i) => {
+                msg += `${start + i + 1}. *${b.name}* ${b.color}\n`;
                 msg += `   └ 🩸 HP: ${formatNumber(b.hp)}\n`;
                 msg += `   └ 💰 Cost: ${formatNumber(b.cost)} Coin\n`;
                 msg += `   └ 📊 Stat Drop: ${formatNumber(b.baseStat)}\n`;
@@ -1095,7 +1105,9 @@ module.exports = [
             msg += `✨ *SET BONUS INFO:*\n`;
             msg += `• 3/5 Set: +10% Power & Defense\n`;
             msg += `• 5/5 Set: +25% Power & Defense\n\n`;
+            msg += `_Gunakan *.raidinfo ${page + 1}* untuk halaman selanjutnya._\n`;
             msg += `_Gunakan *.summonraid <level>* untuk memanggil boss!_`;
+            
             await m.reply(msg.trim());
         }
     },
