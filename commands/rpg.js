@@ -634,6 +634,7 @@ module.exports = [
                 console.error(e);
                 await m.reply('❌ Terjadi kesalahan saat memproses kode.');
             }
+        }
     },
     {
         name: 'summonraid', aliases: ['startraid'], category: 'rpg', desc: 'Summon Boss Raid (1=Weak, 2=Mid, 3=Strong)', usage: '<level>', groupOnly: true,
