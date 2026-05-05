@@ -1,6 +1,6 @@
 const { Users, GroupLevels, RPG } = require('../database');
 const { formatNumber, randomInt } = require('../lib/functions');
-const { calculateTotalStats, generateItem, MONSTERS, ITEM_TYPES, RPG_SHOP } = require('../lib/rpg');
+const { calculateTotalStats, generateItem, MONSTERS, ITEM_TYPES, RPG_SHOP, Raid } = require('../lib/rpg');
 
 module.exports = [
     {
@@ -634,6 +634,92 @@ module.exports = [
                 console.error(e);
                 await m.reply('❌ Terjadi kesalahan saat memproses kode.');
             }
+    },
+    {
+        name: 'summonraid', aliases: ['startraid'], category: 'rpg', desc: 'Summon Boss Raid (Cost: 2k Coin)', groupOnly: true,
+        async execute({ sock, m }) {
+            const currentRaid = Raid.getStatus(m.chat);
+            if (currentRaid) return m.reply(`⚠️ Boss Raid *${currentRaid.boss}* sedang aktif di grup ini!\n🩸 HP: ${formatNumber(currentRaid.currentHp)}/${formatNumber(currentRaid.maxHp)}`);
+            
+            const userCoin = RPG.getCoin(m.sender);
+            if (userCoin < 2000) return m.reply(`❌ Kamu butuh *2.000 Koin RPG* untuk summon boss raid.\n💰 Koin kamu: ${formatNumber(userCoin)}`);
+            
+            RPG.addCoin(m.sender, -2000);
+            const res = Raid.summon(m.chat, m.sender);
+            
+            await m.reply(`🌋 *BOSS RAID TELAH MUNCUL!* 🌋\n\n👾 Boss: *${res.raid.boss}* ${res.raid.color}\n🩸 HP: *${formatNumber(res.raid.maxHp)}*\n👤 Summoner: @${m.sender.split('@')[0]}\n\nKetik *.attackraid* untuk menyerang bersama!`, { mentions: [m.sender] });
+        }
+    },
+    {
+        name: 'attackraid', aliases: ['raidattack', 'ar'], category: 'rpg', desc: 'Serang Boss Raid aktif', groupOnly: true,
+        async execute({ sock, m }) {
+            const raid = Raid.getStatus(m.chat);
+            if (!raid) return m.reply('❌ Tidak ada Boss Raid yang aktif di grup ini. Gunakan *.summonraid* untuk memanggil bos!');
+            
+            const stats = calculateTotalStats(m.sender, m.chat);
+            const userRpg = RPG.getUser(m.sender);
+            
+            // Cooldown 15 detik untuk raid agar tidak spamming terlalu cepat dibanding monster biasa
+            if (userRpg.last_raid_attack) {
+                const last = new Date(userRpg.last_raid_attack).getTime();
+                if (Date.now() - last < 15 * 1000) {
+                    const sisa = Math.ceil((15 * 1000 - (Date.now() - last)) / 1000);
+                    return m.reply(`⏳ Tunggu ${sisa} detik lagi untuk menyerang kembali!`);
+                }
+            }
+            
+            const damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
+            const res = Raid.attack(m.chat, m.sender, damage);
+            
+            // Update cooldown di db
+            const { run } = require('../database');
+            // Kita tambah kolom last_raid_attack jika belum ada, tapi untuk sementara pakai memori atau reuse
+            // Agar stabil kita simpan ke database.sqlite via manual query jika kolom belum ada
+            try { run(`UPDATE rpg_users SET last_raid_attack = datetime('now') WHERE jid = ?`, [m.sender]); } catch {
+                try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = datetime('now') WHERE jid = ?`, [m.sender]); } catch {}
+            }
+
+            if (res.status === 'dead') {
+                let rewardMsg = `🎊 *BOSS RAID DIKALAHKAN!* 🎊\n\n👾 Boss: *${res.raid.boss}*\n\n*KONTRIBUSI HADIAH:*`;
+                const participants = Object.entries(res.raid.participants).sort((a, b) => b[1] - a[1]);
+                
+                for (const [jid, dmg] of participants) {
+                    const coinReward = Math.floor(dmg * 0.5); // 0.5 koin per 1 damage
+                    RPG.addCoin(jid, coinReward);
+                    rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} Koin`;
+                }
+                
+                await m.reply(rewardMsg, { mentions: Object.keys(res.raid.participants) });
+            } else {
+                const { Settings } = require('../database');
+                const abuseVal = Settings.get('adminabuse_' + m.chat);
+                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+                const label = multiplier > 1 ? ` (Admin Abuse x${multiplier}!)` : '';
+                
+                await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*`);
+            }
+        }
+    },
+    {
+        name: 'raidstatus', aliases: ['rs'], category: 'rpg', desc: 'Cek status Boss Raid aktif', groupOnly: true,
+        async execute({ sock, m }) {
+            const raid = Raid.getStatus(m.chat);
+            if (!raid) return m.reply('❌ Tidak ada Boss Raid yang aktif di grup ini.');
+            
+            let msg = `👾 *STATUS BOSS RAID* 👾\n\n`;
+            msg += `👿 Boss: *${raid.boss}* ${raid.color}\n`;
+            msg += `🩸 HP: *${formatNumber(raid.currentHp)} / ${formatNumber(raid.maxHp)}*\n`;
+            msg += `⏳ Aktif sejak: ${new Date(raid.startTime).toLocaleTimeString()}\n\n`;
+            
+            const participants = Object.entries(raid.participants).sort((a, b) => b[1] - a[1]);
+            if (participants.length > 0) {
+                msg += `📊 *TOP CONTRIBUTORS:*\n`;
+                participants.slice(0, 5).forEach(([jid, dmg], i) => {
+                    msg += `${i + 1}. @${jid.split('@')[0]} - ${formatNumber(dmg)} DMG\n`;
+                });
+            }
+            
+            await m.reply(msg.trim(), { mentions: participants.map(p => p[0]) });
         }
     }
 ];
