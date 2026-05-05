@@ -745,6 +745,7 @@ module.exports = [
             }
             
             await m.reply(msg.trim(), { mentions: participants.map(p => p[0]) });
+        }
     },
     {
         name: 'raidinfo', aliases: ['tierlist', 'bossinfo'], category: 'rpg', desc: 'Lihat tier list Boss Raid',
