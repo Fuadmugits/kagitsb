@@ -75,6 +75,10 @@ module.exports = [
                 s[2] = s[1]; // force minor win
             }
 
+            let win = 0;
+            if (s[0]===s[1] && s[1]===s[2]) { win = s[0]==='💎' ? 5000 : s[0]==='7️⃣' ? 3000 : 1000; }
+            else if (s[0]===s[1] || s[1]===s[2] || s[0]===s[2]) { win = 250; }
+
             if (win > 0) { 
                 const { Settings } = require('../database');
                 const abuseVal = Settings.get('adminabuse_' + m.chat);
@@ -121,6 +125,11 @@ module.exports = [
             const abuseVal = Settings.get('adminabuse_' + m.chat);
             const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
             const isAdminAbuse = multiplier > 1;
+
+            const roll = Math.random();
+            const t1 = superJackpotChance;
+            const t2 = t1 + jackpotChance;
+            const t3 = t2 + winChance;
 
             if (roll < t1) {
                 let superWin = bet * 12;
