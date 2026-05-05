@@ -475,10 +475,9 @@ module.exports = [
             if (action === 'on') {
                 let multiplier = parseInt(args[1]) || 2;
                 if (multiplier < 2) multiplier = 2;
-                if (multiplier > 8) multiplier = 8;
                 
                 Settings.set('adminabuse_' + m.chat, String(multiplier));
-                await m.reply(`🔥 *ADMIN ABUSE GRUP AKTIF (x${multiplier})!* 🔥\n\nSeluruh member di grup ini sekarang mendapatkan buff:\n✨ x${multiplier} EXP\n🍀 x${multiplier} Luck\n💰 Multiplier hadiah x${multiplier} dari seluruh aktivitas!`);
+                await m.reply(`🔥 *ADMIN ABUSE GRUP AKTIF (x${formatNumber(multiplier)})!* 🔥\n\nSeluruh member di grup ini sekarang mendapatkan buff:\n✨ x${formatNumber(multiplier)} EXP\n🍀 x${formatNumber(multiplier)} Luck\n💰 Multiplier hadiah x${formatNumber(multiplier)} dari seluruh aktivitas!`);
             } else {
                 Settings.set('adminabuse_' + m.chat, 'false');
                 await m.reply(`✅ *ADMIN ABUSE NONAKTIF*\n\nBuff admin abuse untuk grup ini telah dicabut.`);
