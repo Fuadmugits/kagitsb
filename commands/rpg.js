@@ -907,7 +907,8 @@ module.exports = [
             if (currentRaid) return m.reply(`⚠️ Boss Raid *${currentRaid.boss}* sedang aktif di grup ini!\n🩸 HP: ${formatNumber(currentRaid.currentHp)}/${formatNumber(currentRaid.maxHp)}`);
             
             const level = parseInt(args[0]);
-            if (isNaN(level) || level < 1 || level > 23) return m.reply('❌ Pilih level boss raid (1 - 23)!\nContoh: .summonraid 23\n\n_Lihat daftar bos di .raidinfo_');
+            const maxLevel = require('../lib/rpg').RAID_BOSSES.length;
+            if (isNaN(level) || level < 1 || level > maxLevel) return m.reply(`❌ Pilih level boss raid (1 - ${maxLevel})!\nContoh: .summonraid 23\n\n_Lihat daftar bos di .raidinfo_`);
             
             const boss = RAID_BOSSES.find(b => b.id === level);
             const userCoin = RPG.getCoin(m.sender);
