@@ -448,6 +448,9 @@ module.exports = [
             await sock.sendMessage(m.key.remoteJid, { text: `🏃‍♂️ @${m.sender.split('@')[0]} menolak tantangan PvP dari @${challenge.challenger.split('@')[0]}.`, mentions: [m.sender, challenge.challenger] });
         }
     },
+    {
+        name: 'upgrade', category: 'rpg', desc: 'Upgrade stat dasar (power/defense/luck)', usage: '<stat> (all)',
+        async execute({ sock, m, args }) {
             const stat = args[0]?.toLowerCase();
             const valid = ['power', 'defense', 'luck'];
             if (!valid.includes(stat)) return m.reply('❌ Pilih stat yang ingin di-upgrade: power, defense, atau luck.\nContoh: .upgrade power');
