@@ -299,6 +299,52 @@ module.exports = [
         }
     },
     {
+        name: 'upgrade', category: 'rpg', desc: 'Upgrade stat dasar (power/defense/luck)', usage: '<stat> (all)',
+        async execute({ sock, m, args }) {
+            const stat = args[0]?.toLowerCase();
+            const valid = ['power', 'defense', 'luck'];
+            if (!valid.includes(stat)) return m.reply('❌ Pilih stat yang ingin di-upgrade: power, defense, atau luck!\nContoh: .upgrade power atau .upgrade power all');
+            
+            const user = Users.getOrCreate(m.sender);
+            const userRpg = RPG.getUser(m.sender);
+            const currentLevel = userRpg['base_' + stat] || 0;
+            const isAll = args[1]?.toLowerCase() === 'all';
+            
+            const getCost = (lvl) => (lvl + 1) * 1000;
+            
+            if (isAll) {
+                let totalCost = 0;
+                let levelsUp = 0;
+                let tempLevel = currentLevel;
+                let currentBalance = user.balance;
+                
+                while (currentBalance >= getCost(tempLevel)) {
+                    const cost = getCost(tempLevel);
+                    totalCost += cost;
+                    currentBalance -= cost;
+                    tempLevel++;
+                    levelsUp++;
+                    if (levelsUp >= 100) break; // Safety cap
+                }
+                
+                if (levelsUp === 0) return m.reply(`❌ Balance tidak cukup untuk upgrade even 1 level!\n💰 Butuh: Rp ${formatNumber(getCost(currentLevel))}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+                
+                Users.addBalance(m.sender, -totalCost);
+                RPG.addStat(m.sender, stat, levelsUp);
+                
+                await m.reply(`✅ *UPGRADE MASSAL BERHASIL!*\n\n📈 Stat: ${stat.toUpperCase()}\n🆙 Naik: +${levelsUp} Level\n💰 Total Biaya: Rp ${formatNumber(totalCost)}\n📊 Level Sekarang: ${tempLevel}\n💳 Sisa Saldo: Rp ${formatNumber(currentBalance)}`);
+            } else {
+                const cost = getCost(currentLevel);
+                if (user.balance < cost) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+                
+                Users.addBalance(m.sender, -cost);
+                RPG.addStat(m.sender, stat, 1);
+                
+                await m.reply(`✅ *UPGRADE BERHASIL!*\n\n📈 Stat: ${stat.toUpperCase()}\n🆙 Level: ${currentLevel} -> ${currentLevel + 1}\n💰 Biaya: Rp ${formatNumber(cost)}\n💳 Sisa Saldo: Rp ${formatNumber(user.balance - cost)}`);
+            }
+        }
+    },
+    {
         name: 'useitem', aliases: ['pakai'], category: 'rpg', desc: 'Gunakan item consumable dari tas', usage: '<id_item>',
         async execute({ sock, m, args }) {
             const id = parseInt(args[0]);
