@@ -230,7 +230,7 @@ module.exports = [
             
             if (multiplier > 1) {
                 expGained *= multiplier;
-                koinGained = randomInt(20, 100) * (multiplier / 2); // scaling koin bonus
+                koinGained = randomInt(50, 200) * multiplier; // Buffed base koin and removed /2
             }
             
             if (koinGained > 0) RPG.addCoin(m.sender, koinGained);
@@ -689,13 +689,17 @@ module.exports = [
                 }
             }
             
-            const damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
+            const { Settings } = require('../database');
+            const abuseVal = Settings.get('adminabuse_' + m.chat);
+            const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
+
+            let damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
+            if (multiplier > 1) damage *= multiplier;
+            
             const res = Raid.attack(m.chat, m.sender, damage);
             
             // Update cooldown di db
             const { run } = require('../database');
-            // Kita tambah kolom last_raid_attack jika belum ada, tapi untuk sementara pakai memori atau reuse
-            // Agar stabil kita simpan ke database.sqlite via manual query jika kolom belum ada
             try { run(`UPDATE rpg_users SET last_raid_attack = datetime('now') WHERE jid = ?`, [m.sender]); } catch {
                 try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = datetime('now') WHERE jid = ?`, [m.sender]); } catch {}
             }
@@ -733,11 +737,7 @@ module.exports = [
                 
                 await m.reply(rewardMsg, { mentions: Object.keys(res.raid.participants) });
             } else {
-                const { Settings } = require('../database');
-                const abuseVal = Settings.get('adminabuse_' + m.chat);
-                const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
-                const label = multiplier > 1 ? ` (Admin Abuse x${multiplier}!)` : '';
-                
+                const label = multiplier > 1 ? ` (Admin Abuse x${multiplier}! 🔥)` : '';
                 await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*`);
             }
         }
