@@ -547,40 +547,58 @@ module.exports = [
     {
         name: 'giveitem', aliases: ['gi', 'giveequip'], category: 'owner', desc: 'Berikan equipment apapun ke user', usage: '(@tag/nomor) <type> <rarity> <grade> | raid <bossId> <type> <grade>', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
+            const { createCustomItem, createSpecificRaidItem, ITEM_TYPES, RARITIES, GRADES } = require('../lib/rpg');
+            
             let jid = null;
-            let offset = 0;
+            let itemArgs = [];
 
+            // 1. Detect JID and separate item arguments
             if (m.mentionedJid?.[0]) {
                 jid = m.mentionedJid[0];
-                offset = 1;
-            } else if (args[0] && /^\d+$/.test(args[0])) {
-                jid = parseJid(args[0]);
-                offset = 1;
+                // Remove the mention from args (usually first or specific index)
+                itemArgs = args.filter(a => !a.startsWith('@'));
             } else if (m.quoted?.sender) {
                 jid = m.quoted.sender;
-                offset = 0;
+                itemArgs = args;
+            } else if (args[0] && (/^\d+$/.test(args[0]) || args[0].includes('@'))) {
+                jid = parseJid(args[0]);
+                itemArgs = args.slice(1);
             }
 
-            if (!jid) return m.reply('❌ Tag user, reply pesan, atau masukkan nomor!');
+            if (!jid) return m.reply('❌ Tag user, reply pesan, atau masukkan nomor!\nContoh: .giveitem @user weapon Mythic SSS+');
+            if (itemArgs.length < 3) return m.reply(`❌ Argumen kurang!\n\n📌 *Biasa:* .giveitem @user <type> <rarity> <grade>\n📌 *Raid:* .giveitem @user raid <bossId> <type> <grade>\n\n*Type:* ${ITEM_TYPES.join(', ')}`);
 
-            const { createCustomItem, createSpecificRaidItem, ITEM_TYPES, RARITIES, GRADES } = require('../lib/rpg');
             let item = null;
+            const isRaid = itemArgs[0].toLowerCase() === 'raid';
 
-            if (args[offset]?.toLowerCase() === 'raid') {
-                const bossId = parseInt(args[offset + 1]);
-                const type = args[offset + 2]?.toLowerCase();
-                const grade = args[offset + 3]?.toUpperCase();
-                if (!bossId || !type || !grade) return m.reply('❌ Format: .giveitem @tag raid <bossId> <type> <grade>\nContoh: .giveitem @tag raid 3 weapon SSS+');
+            if (isRaid) {
+                const bossId = parseInt(itemArgs[1]);
+                const type = itemArgs[2]?.toLowerCase();
+                const grade = itemArgs[3]?.toUpperCase();
+                
+                if (!bossId || !type || !grade) return m.reply('❌ Format Raid salah!\nContoh: .giveitem @user raid 3 weapon SSS+');
+                if (!ITEM_TYPES.includes(type)) return m.reply(`❌ Type tidak valid: *${type}*\nGunkan: ${ITEM_TYPES.join(', ')}`);
+                
                 item = createSpecificRaidItem(bossId, type, grade);
             } else {
-                const type = args[offset]?.toLowerCase();
-                const rarity = args[offset + 1];
-                const grade = args[offset + 2]?.toUpperCase();
-                if (!type || !rarity || !grade) return m.reply('❌ Format: .giveitem @tag <type> <rarity> <grade>\nContoh: .giveitem @tag weapon Mythic SSS+');
+                const type = itemArgs[0]?.toLowerCase();
+                const rarity = itemArgs[1];
+                const grade = itemArgs[2]?.toUpperCase();
+                
+                if (!ITEM_TYPES.includes(type)) return m.reply(`❌ Type tidak valid: *${type}*\nGunkan: ${ITEM_TYPES.join(', ')}`);
+                
+                // Validate rarity
+                const foundRarity = RARITIES.find(r => r.name.toLowerCase() === rarity.toLowerCase());
+                if (!foundRarity) return m.reply(`❌ Rarity tidak valid: *${rarity}*\nGunkan: ${RARITIES.map(r => r.name).join(', ')}`);
+                
+                // Validate grade
+                const foundGrade = GRADES.find(g => g.name.toLowerCase() === grade.toLowerCase());
+                if (!foundGrade) return m.reply(`❌ Grade tidak valid: *${grade}*\nGunkan: ${GRADES.map(g => g.name).join(', ')}`);
+
                 item = createCustomItem(type, rarity, grade);
             }
 
-            if (!item) return m.reply('❌ Gagal membuat item. Pastikan type, rarity, dan grade benar!');
+            if (!item) return m.reply('❌ Gagal membuat item. Pastikan semua parameter benar!');
 
             RPG.addInventory(jid, item.type, JSON.stringify(item));
             await m.reply(`✅ *ITEM BERHASIL DIBERIKAN!* 🎁\n\n👤 Penerima: @${jid.split('@')[0]}\n📦 Item: ${item.name}\n✨ Rarity: ${item.rarity}\n🏅 Grade: ${item.grade}\n📊 Stats: P:${item.stats.power} D:${item.stats.defense} L:${item.stats.luck}\n\n_Item sudah dimasukkan ke inventory (.inv)_`, { mentions: [jid] });
