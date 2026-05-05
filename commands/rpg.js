@@ -1,5 +1,5 @@
 const { Users, GroupLevels, RPG } = require('../database');
-const { formatNumber, randomInt } = require('../lib/functions');
+const { formatNumber, randomInt, pickRandom } = require('../lib/functions');
 const { calculateTotalStats, generateItem, MONSTERS, ITEM_TYPES, RPG_SHOP, Raid } = require('../lib/rpg');
 
 module.exports = [
@@ -682,11 +682,38 @@ module.exports = [
             if (res.status === 'dead') {
                 let rewardMsg = `🎊 *BOSS RAID DIKALAHKAN!* 🎊\n\n👾 Boss: *${res.raid.boss}*\n\n*KONTRIBUSI HADIAH:*`;
                 const participants = Object.entries(res.raid.participants).sort((a, b) => b[1] - a[1]);
+                const topContributorJid = participants[0][0];
                 
                 for (const [jid, dmg] of participants) {
                     const coinReward = Math.floor(dmg * 0.5); // 0.5 koin per 1 damage
                     RPG.addCoin(jid, coinReward);
                     rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} Koin`;
+                    
+                    // Peluang drop item untuk semua peserta (3%)
+                    if (Math.random() < 0.03) {
+                        const itemType = pickRandom(ITEM_TYPES);
+                        const item = generateItem(itemType, 'kuat');
+                        RPG.addInventory(jid, itemType, JSON.stringify(item));
+                        rewardMsg += `\n    🎁 *DROP:* ${item.rarity} ${item.name}`;
+                    }
+                }
+                
+                // Peluang khusus SECRET item untuk Top Contributor (5%)
+                if (Math.random() < 0.05) {
+                    const itemType = pickRandom(ITEM_TYPES);
+                    // Force Secret rarity
+                    const item = generateItem(itemType, 'boss');
+                    item.rarity = 'Secret';
+                    item.stats.power *= 2; // Secret item from Raid is double power
+                    
+                    RPG.addInventory(topContributorJid, itemType, JSON.stringify(item));
+                    rewardMsg += `\n\n🔥 *LUCKY DROP (TOP CONTRIBUTOR):*\n✨ @${topContributorJid.split('@')[0]} mendapatkan item **SECRET**!\n📦 Item: ${item.name}`;
+                } else if (Math.random() < 0.15) {
+                    // Peluang item Rare ke atas untuk Top Contributor (15%) jika tidak dapat Secret
+                    const itemType = pickRandom(ITEM_TYPES);
+                    const item = generateItem(itemType, 'boss');
+                    RPG.addInventory(topContributorJid, itemType, JSON.stringify(item));
+                    rewardMsg += `\n\n🎁 *BONUS DROP (TOP CONTRIBUTOR):*\n✨ @${topContributorJid.split('@')[0]} mendapatkan ${item.rarity} ${item.name}`;
                 }
                 
                 await m.reply(rewardMsg, { mentions: Object.keys(res.raid.participants) });
