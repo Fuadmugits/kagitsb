@@ -484,5 +484,20 @@ module.exports = [
                 await m.reply(`✅ *ADMIN ABUSE NONAKTIF*\n\nBuff admin abuse untuk grup ini telah dicabut.`);
             }
         }
+    },
+    {
+        name: 'mute', category: 'owner', desc: 'Mute/unmute bot di grup ini', usage: 'on/off', ownerOnly: true, groupOnly: true, noLimit: true,
+        async execute({ sock, m, args }) {
+            const action = args[0]?.toLowerCase();
+            if (!['on', 'off'].includes(action)) return m.reply('❌ Gunakan "on" atau "off"!\nContoh: .mute on');
+            
+            if (action === 'on') {
+                Settings.set(`mute_${m.chat}`, 'true');
+                await m.reply('🤫 *Bot Muted!*\n\nBot sekarang dinonaktifkan di grup ini dan tidak akan merespon perintah apapun kecuali dari Owner.');
+            } else {
+                Settings.set(`mute_${m.chat}`, 'false');
+                await m.reply('🔊 *Bot Unmuted!*\n\nBot kembali aktif dan siap melayani di grup ini.');
+            }
+        }
     }
 ];
