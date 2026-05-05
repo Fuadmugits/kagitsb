@@ -381,11 +381,11 @@ module.exports = [
             
             // Perform Ascension
             RPG.addCoin(m.sender, -cost);
-            RPG.resetStat(m.sender, stat); // Custom function to reset level and add asc level
+            RPG.fullRebirth(m.sender, stat); 
             
-            const newAsc = (userRpg['asc_' + stat] || 0) + 1;
+            const newAsc = (RPG.getUser(m.sender)['asc_' + stat] || 0);
             
-            await m.reply(`✨ *ASCENSION BERHASIL!* ✨\n\n🌌 Stat *${stat.toUpperCase()}* kamu telah berevolusi!\n🆙 Ascension Level: ${newAsc}\n⚡ Multiplier Stat: x${(1 + newAsc * 0.1).toFixed(1)}\n💰 Biaya: 🪙 ${formatNumber(cost)}\n📊 Base Level reset ke 0.`);
+            await m.reply(`✨ *FULL REBIRTH BERHASIL!* ✨\n\n🌌 Stat *${stat.toUpperCase()}* kamu telah berevolusi!\n🆙 Ascension Level Sekarang: ${newAsc}\n⚡ Multiplier Stat: x${(1 + newAsc * 0.1).toFixed(1)}\n💰 Biaya: 🪙 ${formatNumber(cost)}\n\n⚠️ *PEMBERSIHAN TOTAL:* ⚠️\n- Semua Base Stat di-reset ke Awal.\n- Semua Item di Inventory dihapus.\n- Semua Equipment dilepas & dihancurkan.`);
         }
     },
     {

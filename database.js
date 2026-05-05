@@ -811,6 +811,24 @@ const RPG = {
         run(`UPDATE rpg_users SET base_${statType} = 0, asc_${statType} = asc_${statType} + 1 WHERE jid = ?`, [jid]);
         return true;
     },
+    fullRebirth(jid, ascendedStat) {
+        const validStats = ['power', 'defense', 'luck'];
+        if (!validStats.includes(ascendedStat)) return false;
+        
+        // 1. Increment specific ascension level
+        run(`UPDATE rpg_users SET asc_${ascendedStat} = asc_${ascendedStat} + 1 WHERE jid = ?`, [jid]);
+        
+        // 2. Reset all base stats
+        run(`UPDATE rpg_users SET base_power = 10, base_defense = 10, base_luck = 0, hp = 1000 WHERE jid = ?`, [jid]);
+        
+        // 3. Clear equipped items
+        run(`UPDATE rpg_users SET weapon = NULL, helmet = NULL, armor = NULL, glove = NULL, legging = NULL, shoe = NULL WHERE jid = ?`, [jid]);
+        
+        // 4. Delete all inventory items
+        run(`DELETE FROM rpg_inventory WHERE jid = ?`, [jid]);
+        
+        return true;
+    },
     resetRPG() {
         run('DELETE FROM rpg_users');
         run('DELETE FROM rpg_inventory');
