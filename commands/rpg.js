@@ -745,6 +745,26 @@ module.exports = [
             }
             
             await m.reply(msg.trim(), { mentions: participants.map(p => p[0]) });
+    },
+    {
+        name: 'raidinfo', aliases: ['tierlist', 'bossinfo'], category: 'rpg', desc: 'Lihat tier list Boss Raid',
+        async execute({ sock, m }) {
+            let msg = `🏆 *RPG BOSS RAID TIER LIST* 🏆\n\n`;
+            
+            RAID_BOSSES.forEach((b, i) => {
+                msg += `${i + 1}. *${b.name}* ${b.color}\n`;
+                msg += `   └ 🩸 HP: ${formatNumber(b.hp)}\n`;
+                msg += `   └ 💰 Cost: ${formatNumber(b.cost)} Coin\n`;
+                msg += `   └ 📊 Stat Drop: ${formatNumber(b.baseStat)}\n`;
+                msg += `   └ ✨ Rarity: ${b.rarity}\n\n`;
+            });
+            
+            msg += `✨ *SET BONUS INFO:*\n`;
+            msg += `• 3/5 Set: +10% Power & Defense\n`;
+            msg += `• 5/5 Set: +25% Power & Defense\n\n`;
+            msg += `_Gunakan *.summonraid <level>* untuk memanggil boss!_`;
+            
+            await m.reply(msg.trim());
         }
     }
 ];

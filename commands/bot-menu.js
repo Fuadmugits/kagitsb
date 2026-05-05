@@ -32,7 +32,7 @@ module.exports = [
                 games: '𝙶𝙰𝙼𝙴 𝙼𝙴𝙽𝚄', panel: '𝙿𝙰𝙽𝙴𝙻 𝙼𝙴𝙽𝚄', fun: '𝙵𝚄𝙽 𝙼𝙴𝙽𝚄',
                 social: '𝚂𝙾𝙲𝙸𝙰𝙻 𝙼𝙴𝙽𝚄', utility: '𝚄𝚃𝙸𝙻𝙸𝚃𝚈 𝙼𝙴𝙽𝚄',
                 random: '𝚁𝙰𝙽𝙳𝙾𝙼 𝙼𝙴𝙽𝚄', stalker: '𝚂𝚃𝙰𝙻𝙺𝙴𝚁 𝙼𝙴𝙽𝚄',
-                owner: '𝙾𝚆𝙽𝙴𝚁 𝙼𝙴𝙽𝚄', other: '𝙾𝚃𝙷𝙴𝚁',
+                owner: '𝙾𝚆𝙽𝙴𝚁 𝙼𝙴𝙽𝚄', rpg: '𝚁𝙿𝙶 𝙼𝙴𝙽𝚄', other: '𝙾𝚃𝙷𝙴𝚁',
             };
 
 
@@ -43,6 +43,7 @@ module.exports = [
             text += `║ 💎 𝚄𝚜𝚎𝚛    : ${isPrem ? '𝙿𝚁𝙴𝙼𝙸𝚄𝙼' : '𝙵𝚁𝙴𝙴'}\n`;
             text += `║ 📉 𝙻𝚒𝚖𝚒𝚝   : ${formatNumber(user.limit_count)}\n`;
             text += `║ 💰 𝚄𝚊𝚗𝚐    : ${formatNumber(user.balance)}\n`;
+            text += `║ 🪙 𝚁𝙿𝙶 𝙲𝚘𝚒𝚗 : ${formatNumber(RPG.getCoin(m.sender))}\n`;
             text += `╚═══════════════════════╝\n\n`;
 
             text += `╔═══ ❖ 𝙱𝙾𝚃 𝙸𝙽𝙵𝙾 ❖ ═══╗\n`;
@@ -60,7 +61,7 @@ module.exports = [
             text += `║ ⏰ 𝙹𝚊𝚖      : ${getTime()} 𝚆𝙸𝙱\n`;
             text += `╚═══════════════════╝\n`;
 
-            const order = ['bot','group','search','download','quotes','tools','ai','anime','games','social','utility','panel','fun','random','stalker','owner'];
+            const order = ['bot','rpg','group','search','download','quotes','tools','ai','anime','games','social','utility','panel','fun','random','stalker','owner'];
             for (const cat of order) {
                 if (!categories[cat] || categories[cat].length === 0) continue;
                 if (cat === 'owner' && !isOwner(m.sender)) continue;
