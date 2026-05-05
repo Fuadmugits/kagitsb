@@ -608,22 +608,27 @@ module.exports = [
             }
             
             // Grant reward
-            const amount = codeData.reward_amount;
-            const type = codeData.reward_type;
+            const { r_coin, r_balance, r_limit } = codeData;
             
             try {
-                if (type === 'coin') {
-                    RPG.addCoin(m.sender, amount);
-                } else if (type === 'balance') {
-                    Users.addBalance(m.sender, amount);
-                } else if (type === 'limit') {
-                    Users.addLimit(m.sender, amount);
+                let rewardText = '';
+                if (r_coin > 0) {
+                    RPG.addCoin(m.sender, r_coin);
+                    rewardText += `\n  🪙 ${formatNumber(r_coin)} Koin RPG`;
+                }
+                if (r_balance > 0) {
+                    Users.addBalance(m.sender, r_balance);
+                    rewardText += `\n  💵 Rp ${formatNumber(r_balance)} Balance`;
+                }
+                if (r_limit > 0) {
+                    Users.addLimit(m.sender, r_limit);
+                    rewardText += `\n  🎫 ${formatNumber(r_limit)} Limit`;
                 }
                 
                 // Redeem process
                 RedeemCodes.redeem(m.sender, code);
                 
-                await m.reply(`🎉 *KODE BERHASIL DIKLAIM!*\n\nSelamat! Kamu mendapatkan hadiah:\n🎁 *${formatNumber(amount)} ${type.toUpperCase()}*`);
+                await m.reply(`🎉 *KODE BERHASIL DIKLAIM!*\n\nSelamat! Kamu mendapatkan hadiah:${rewardText}`);
             } catch (e) {
                 console.error(e);
                 await m.reply('❌ Terjadi kesalahan saat memproses kode.');

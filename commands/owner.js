@@ -501,23 +501,23 @@ module.exports = [
         }
     },
     {
-        name: 'addcode', category: 'owner', desc: 'Buat kode redeem RPG', usage: '<code> <coin|balance|limit> <amount> [max_uses]', ownerOnly: true, noLimit: true,
+        name: 'addcode', category: 'owner', desc: 'Buat kode redeem RPG', usage: '<code> <koin> <balance> <limit> [max_uses]', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
-            if (args.length < 3) return m.reply('❌ Format: .addcode <code> <type> <amount> [max_uses]\nContoh: .addcode MABAR coin 1000 50');
+            if (args.length < 4) return m.reply('❌ Format: .addcode <code> <koin> <balance> <limit> [max_uses]\nContoh: .addcode MABAR 1000 50000 10 50');
             const code = args[0].toUpperCase();
-            const type = args[1].toLowerCase();
-            const amount = parseInt(args[2]);
-            const maxUses = parseInt(args[3]) || 0;
+            const coin = parseInt(args[1]) || 0;
+            const balance = parseInt(args[2]) || 0;
+            const limit = parseInt(args[3]) || 0;
+            const maxUses = parseInt(args[4]) || 0;
             
-            if (!['coin', 'balance', 'limit'].includes(type)) return m.reply('❌ Tipe hadiah harus: coin, balance, atau limit');
-            if (isNaN(amount) || amount <= 0) return m.reply('❌ Amount harus berupa angka lebih dari 0');
+            if (coin === 0 && balance === 0 && limit === 0) return m.reply('❌ Minimal salah satu hadiah harus lebih dari 0!');
             
             const { RedeemCodes } = require('../database');
             const existing = RedeemCodes.get(code);
             if (existing) return m.reply('❌ Kode tersebut sudah ada!');
             
-            const res = RedeemCodes.create(code, type, amount, maxUses);
-            await m.reply(`✅ *KODE DIBUAT*\n\n🎟️ Kode: *${res.code}*\n🎁 Hadiah: ${amount} ${type}\n👥 Limit Pengguna: ${maxUses > 0 ? maxUses : 'Unlimited'}\n⏳ Expired: 7 Hari dari sekarang`);
+            const res = RedeemCodes.create(code, coin, balance, limit, maxUses);
+            await m.reply(`✅ *KODE DIBUAT*\n\n🎟️ Kode: *${res.code}*\n🎁 Hadiah:\n  🪙 ${coin} Koin\n  💵 Rp ${balance} Balance\n  🎫 ${limit} Limit\n👥 Limit Pengguna: ${maxUses > 0 ? maxUses : 'Unlimited'}\n⏳ Expired: 7 Hari dari sekarang`);
         }
     },
     {
@@ -540,7 +540,7 @@ module.exports = [
             for (const c of codes) {
                 const sisa = c.max_uses > 0 ? `${c.current_uses}/${c.max_uses}` : `${c.current_uses}/∞`;
                 const expired = new Date(c.expires_at).getTime() < Date.now() ? '(EXPIRED)' : '';
-                txt += `🔹 *${c.code}* ${expired}\n🎁 Hadiah: ${c.reward_amount} ${c.reward_type}\n👥 Digunakan: ${sisa}\n\n`;
+                txt += `🔹 *${c.code}* ${expired}\n🎁 Hadiah: 🪙 ${c.r_coin} | 💵 ${c.r_balance} | 🎫 ${c.r_limit}\n👥 Digunakan: ${sisa}\n\n`;
             }
             await m.reply(txt.trim());
         }

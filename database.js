@@ -160,17 +160,18 @@ async function initDatabase() {
     try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_coin INTEGER DEFAULT 0'); } catch {}
 
     // Redeem Codes System
-    db.run(`CREATE TABLE IF NOT EXISTS redeem_codes (
+    db.run(`CREATE TABLE IF NOT EXISTS gift_codes (
         code TEXT PRIMARY KEY,
-        reward_type TEXT NOT NULL,
-        reward_amount INTEGER NOT NULL,
+        r_coin INTEGER DEFAULT 0,
+        r_balance INTEGER DEFAULT 0,
+        r_limit INTEGER DEFAULT 0,
         max_uses INTEGER DEFAULT 0,
         current_uses INTEGER DEFAULT 0,
         expires_at TEXT,
         created_at TEXT DEFAULT (datetime('now'))
     )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS redeem_history (
+    db.run(`CREATE TABLE IF NOT EXISTS gift_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         jid TEXT NOT NULL,
         code TEXT NOT NULL,
@@ -835,29 +836,29 @@ const RPG = {
 };
 
 const RedeemCodes = {
-    create(code, type, amount, maxUses = 0) {
+    create(code, coin, balance, limit, maxUses = 0) {
         // Set expiry to 7 days from now
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-        run('INSERT INTO redeem_codes (code, reward_type, reward_amount, max_uses, expires_at) VALUES (?, ?, ?, ?, ?)', 
-            [code.toUpperCase(), type.toLowerCase(), amount, maxUses, expiresAt]);
-        return { code: code.toUpperCase(), type, amount, expiresAt };
+        run('INSERT INTO gift_codes (code, r_coin, r_balance, r_limit, max_uses, expires_at) VALUES (?, ?, ?, ?, ?, ?)', 
+            [code.toUpperCase(), coin, balance, limit, maxUses, expiresAt]);
+        return { code: code.toUpperCase(), coin, balance, limit, expiresAt };
     },
     get(code) {
-        return queryOne('SELECT * FROM redeem_codes WHERE code = ?', [code.toUpperCase()]);
+        return queryOne('SELECT * FROM gift_codes WHERE code = ?', [code.toUpperCase()]);
     },
     delete(code) {
-        run('DELETE FROM redeem_codes WHERE code = ?', [code.toUpperCase()]);
+        run('DELETE FROM gift_codes WHERE code = ?', [code.toUpperCase()]);
     },
     list() {
-        return query('SELECT * FROM redeem_codes');
+        return query('SELECT * FROM gift_codes');
     },
     hasRedeemed(jid, code) {
-        return queryOne('SELECT * FROM redeem_history WHERE jid = ? AND code = ?', [jid, code.toUpperCase()]) != null;
+        return queryOne('SELECT * FROM gift_history WHERE jid = ? AND code = ?', [jid, code.toUpperCase()]) != null;
     },
     redeem(jid, code) {
         const c = code.toUpperCase();
-        run('INSERT INTO redeem_history (jid, code) VALUES (?, ?)', [jid, c]);
-        run('UPDATE redeem_codes SET current_uses = current_uses + 1 WHERE code = ?', [c]);
+        run('INSERT INTO gift_history (jid, code) VALUES (?, ?)', [jid, c]);
+        run('UPDATE gift_codes SET current_uses = current_uses + 1 WHERE code = ?', [c]);
     }
 };
 
