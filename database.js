@@ -155,6 +155,7 @@ async function initDatabase() {
         asc_power INTEGER DEFAULT 0,
         asc_defense INTEGER DEFAULT 0,
         asc_luck INTEGER DEFAULT 0,
+        hp INTEGER DEFAULT 1000,
         last_raid_attack TEXT
     )`);
 
@@ -165,6 +166,7 @@ async function initDatabase() {
     try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_power INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_defense INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_luck INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN hp INTEGER DEFAULT 1000'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT'); } catch {}
 
     // Redeem Codes System
@@ -812,6 +814,13 @@ const RPG = {
     resetRPG() {
         run('DELETE FROM rpg_users');
         run('DELETE FROM rpg_inventory');
+    },
+    addHp(jid, amount) {
+        this.getUser(jid); 
+        run(`UPDATE rpg_users SET hp = hp + ? WHERE jid = ?`, [amount, jid]);
+    },
+    setHp(jid, amount) {
+        run(`UPDATE rpg_users SET hp = ? WHERE jid = ?`, [amount, jid]);
     },
     addCoin(jid, amount) {
         this.getUser(jid); // ensure exists

@@ -389,6 +389,24 @@ module.exports = [
         }
     },
     {
+        name: 'heal', aliases: ['obat', 'pulih'], category: 'rpg', desc: 'Pulihkan HP kamu agar bisa bertarung kembali',
+        async execute({ sock, m }) {
+            const u = Users.get(m.sender);
+            const userRpg = RPG.getUser(m.sender);
+            const maxHp = 1000 + (u.level * 50);
+            
+            if (userRpg.hp >= maxHp) return m.reply('❤️ HP kamu sudah penuh!');
+            
+            const cost = 500;
+            if (u.balance < cost) return m.reply(`❌ Balance tidak cukup untuk biaya pengobatan!\n💰 Butuh: Rp ${formatNumber(cost)}`);
+            
+            Users.addBalance(m.sender, -cost);
+            RPG.setHp(m.sender, maxHp);
+            
+            await m.reply(`💖 *PENGOBATAN BERHASIL!* 💖\n\nHP kamu kini kembali penuh (*${maxHp}*).\n💸 Biaya: Rp ${formatNumber(cost)}\n\n_Ayo kembali ke arena pertarungan!_`);
+        }
+    },
+    {
         name: 'repair', aliases: ['perbaiki', 'service'], category: 'rpg', desc: 'Perbaiki semua equipment yang terpakai',
         async execute({ sock, m }) {
             const userRpg = RPG.getUser(m.sender);
@@ -926,14 +944,30 @@ module.exports = [
             let damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
             if (multiplier > 1) damage *= multiplier;
             
-            // Damage Cap: Maksimal 5% HP Bos per serangan (mencegah 1-shot dari Admin Abuse ekstrim)
+            // Damage Cap: Maksimal 5% HP Bos per serangan (HANYA 10 DETIK PERTAMA)
+            const raidAge = Date.now() - raid.startTime;
+            const isCapped = raidAge < 10000;
             const cap = Math.floor(raid.maxHp * 0.05);
             let cappedLabel = '';
-            if (damage > cap) {
+            if (isCapped && damage > cap) {
                 damage = cap;
-                cappedLabel = ' (Capped 5% HP 🛡️)';
+                cappedLabel = ' (Shield 5% HP 🛡️)';
             }
             
+            // Boss Counter-Attack
+            const bossPower = 10 + (raid.id * 5); // scales with boss level
+            let bossDmg = randomInt(Math.floor(bossPower * 0.5), bossPower);
+            // Player defense reduces boss damage
+            bossDmg = Math.max(1, bossDmg - Math.floor(stats.defense / 100)); 
+            
+            RPG.addHp(m.sender, -bossDmg);
+            const currentPlayerHp = (RPG.getUser(m.sender).hp || 0);
+
+            if (currentPlayerHp <= 0) {
+                RPG.setHp(m.sender, 0);
+                return m.reply(`💀 *KAMU TERLUKA PARAH!* 💀\n\nSerangan balik dari *${raid.boss}* membuatmu pingsan!\nKamu tidak bisa menyerang sementara waktu. Gunakan *.heal* untuk memulihkan diri.`);
+            }
+
             const res = Raid.attack(m.chat, m.sender, damage);
             
             // Update cooldown di db
@@ -979,7 +1013,7 @@ module.exports = [
             } else {
                 const label = multiplier > 1 ? ` (Admin Abuse x${multiplier}! 🔥)` : '';
                 
-                // Decrease Durability on Raid Attack
+                // Decrease Durability on Raid Attack (Increased to 2 points)
                 const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
                 const userRpg = RPG.getUser(m.sender);
                 for (const slot of slots) {
@@ -987,14 +1021,15 @@ module.exports = [
                         try {
                             const item = JSON.parse(userRpg[slot]);
                             if (item.durability > 0) {
-                                item.durability -= 1;
+                                item.durability -= 2;
+                                if (item.durability < 0) item.durability = 0;
                                 RPG.updateEquip(m.sender, slot, JSON.stringify(item));
                             }
                         } catch (e) {}
                     }
                 }
 
-                await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}${cappedLabel}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*`);
+                await m.reply(`⚔️ Kamu menyerang *${raid.boss}*!\n💥 Damage: *${formatNumber(res.damage)}*${label}${cappedLabel}\n🩸 Sisa HP Boss: *${formatNumber(res.raid.currentHp)}*\n❤️ HP Kamu: ${currentPlayerHp} (-${bossDmg})`);
             }
         }
     },
