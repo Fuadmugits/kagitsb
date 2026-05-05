@@ -360,38 +360,58 @@ module.exports = [
                 if (itemData.type !== 'consumable') return m.reply('❌ Item ini tidak bisa digunakan, hanya bisa dipakai (.equip)');
                 
                 const effect = itemData.stats.effect;
-                let reply = `✨ *MENGGUNAKAN ${itemData.name.toUpperCase()}* ✨\n\n`;
+                const isAll = args[1]?.toLowerCase() === 'all';
+                const count = isAll ? itemRow.amount : 1;
                 
-                if (effect === 'gacha') {
-                    const rand = Math.random();
-                    if (rand < 0.1) {
-                        const bal = randomInt(500000, 2000000);
-                        Users.addBalance(m.sender, bal);
-                        reply += `💰 *JACKPOT!* Kamu mendapatkan Balance: Rp ${formatNumber(bal)}`;
-                    } else if (rand < 0.3) {
-                        const coins = randomInt(500, 1500);
-                        RPG.addCoin(m.sender, coins);
-                        reply += `🪙 Kamu mendapatkan: ${formatNumber(coins)} Koin RPG`;
-                    } else {
-                        const { generateItem, ITEM_TYPES } = require('../lib/rpg');
-                        const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
-                        const item = generateItem(type, 'kuat');
-                        RPG.addInventory(m.sender, type, JSON.stringify(item));
-                        reply += `🎁 Kamu mendapatkan equipment baru!\n📦 Item: ${item.name}\n✨ Rarity: ${item.rarity}`;
+                let totalReply = `✨ *MENGGUNAKAN ${count}x ${itemData.name.toUpperCase()}* ✨\n\n`;
+                let totalBal = 0;
+                let totalCoins = 0;
+                let totalItems = 0;
+                let itemsList = [];
+                
+                for (let i = 0; i < count; i++) {
+                    if (effect === 'gacha') {
+                        const rand = Math.random();
+                        if (rand < 0.1) {
+                            totalBal += randomInt(500000, 2000000);
+                        } else if (rand < 0.3) {
+                            totalCoins += randomInt(500, 1500);
+                        } else {
+                            const { generateItem, ITEM_TYPES } = require('../lib/rpg');
+                            const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+                            const item = generateItem(type, 'kuat');
+                            RPG.addInventory(m.sender, type, JSON.stringify(item));
+                            totalItems++;
+                            if (itemsList.length < 5) itemsList.push(`${item.rarity} ${item.name}`);
+                        }
+                    } else if (effect === 'premium') {
+                        const days = itemData.stats.days || 1;
+                        Users.setPremium(m.sender, days);
+                    } else if (effect === 'balance') {
+                        totalBal += randomInt(itemData.stats.min, itemData.stats.max);
                     }
-                } else if (effect === 'premium') {
-                    const days = itemData.stats.days || 1;
-                    Users.setPremium(m.sender, days);
-                    reply += `💎 *PREMIUM AKTIF!* Akun kamu sekarang menjadi Premium selama ${days} hari.`;
-                } else if (effect === 'balance') {
-                    const amount = randomInt(itemData.stats.min, itemData.stats.max);
-                    Users.addBalance(m.sender, amount);
-                    reply += `💸 Kamu mendapatkan Balance: Rp ${formatNumber(amount)}`;
                 }
                 
-                RPG.removeInventory(id, 1);
-                await m.reply(reply);
+                if (effect === 'gacha') {
+                    if (totalBal > 0) totalReply += `💰 Total Balance: Rp ${formatNumber(totalBal)}\n`;
+                    if (totalCoins > 0) totalReply += `🪙 Total Koin RPG: ${formatNumber(totalCoins)}\n`;
+                    if (totalItems > 0) {
+                        totalReply += `🎁 Total Equipment: ${totalItems}\n`;
+                        if (itemsList.length > 0) totalReply += `   _(Beberapa: ${itemsList.join(', ')}...)_\n`;
+                    }
+                } else if (effect === 'premium') {
+                    totalReply += `💎 Status Premium telah ditambahkan/diperpanjang!`;
+                } else if (effect === 'balance') {
+                    totalReply += `💸 Total Balance didapat: Rp ${formatNumber(totalBal)}`;
+                }
+                
+                if (totalBal > 0) Users.addBalance(m.sender, totalBal);
+                if (totalCoins > 0) RPG.addCoin(m.sender, totalCoins);
+                
+                RPG.removeInventory(id, count);
+                await m.reply(totalReply.trim());
             } catch (e) {
+                console.error(e);
                 await m.reply('❌ Gagal menggunakan item.');
             }
         }
@@ -673,7 +693,11 @@ module.exports = [
             const coins = RPG.getCoin(m.sender);
             if (coins < selectedItem.price) return m.reply(`❌ Koin RPG tidak cukup!\n💰 Butuh: 🪙 ${formatNumber(selectedItem.price)}\n🪙 Koinmu: ${formatNumber(coins)}`);
             
-            RPG.addCoin(m.sender, -selectedItem.price);
+            const isAll = args[1]?.toLowerCase() === 'all';
+            const count = isAll ? Math.floor(coins / selectedItem.price) : 1;
+            const totalCost = count * selectedItem.price;
+            
+            RPG.addCoin(m.sender, -totalCost);
             
             const newItem = {
                 type: itemType,
@@ -683,8 +707,8 @@ module.exports = [
                 stats: selectedItem.stats
             };
             
-            RPG.addInventory(m.sender, itemType, JSON.stringify(newItem));
-            await m.reply(`🛍️ *PEMBELIAN BERHASIL!*\n\nKamu telah membeli *${selectedItem.name}* seharga 🪙 ${selectedItem.price} Koin RPG.\nBarang sudah dimasukkan ke dalam tas (.inv).`);
+            RPG.addInventory(m.sender, itemType, JSON.stringify(newItem), count);
+            await m.reply(`🛍️ *PEMBELIAN BERHASIL!*\n\nKamu telah membeli *${count}x ${selectedItem.name}* seharga 🪙 ${formatNumber(totalCost)} Koin RPG.\nBarang sudah dimasukkan ke dalam tas (.inv).`);
         }
     },
     {
