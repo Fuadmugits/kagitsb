@@ -932,4 +932,4 @@ const RedeemCodes = {
     }
 };
 
-module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, CustomTitles, RPG, RedeemCodes, test };
+module.exports = { initDatabase, Users, Transactions, CustomCommands, MessageStore, CommandLogs, Warnings, AFK, Admins, Settings, GroupLevels, CheckIn, Achievements, PrayerSubs, Reminders, CoOwners, CustomTitles, RPG, RedeemCodes, test, run, query, queryOne, all };
