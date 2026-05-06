@@ -8,7 +8,7 @@ module.exports = {
         ownerName: process.env.OWNER_NAME || 'Owner',
         mode: 'public',       // 'public' | 'self' | 'group'
         autoRead: false,
-        autoTyping: true,
+        autoTyping: false,
         autoRecording: false,
     },
     web: {
