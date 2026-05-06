@@ -23,6 +23,13 @@ function createWebServer(sock) {
     app.use('/api/bot', require('./api/bot')());
     app.use('/api/settings', require('./api/settings'));
 
+    // Download database
+    app.get('/download-db', (req, res) => {
+        const fs = require('fs');
+        const dbPath = require('path').join(__dirname, '../storage/database.db');
+        res.download(dbPath, 'database.db');
+    });
+
     // Health check
     app.get('/api/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
