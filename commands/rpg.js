@@ -1115,7 +1115,8 @@ module.exports = [
             const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
 
             let damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
-            if (multiplier > 1) damage *= multiplier;
+            // Multiplier from Admin Abuse removed for Power/Defense as requested. 
+            // It only affects Luck/DropChance via calculateTotalStats.
             
             // Damage Cap: Scaling Shield Duration (+5 detik per level boss)
             const raidAge = Date.now() - raid.startTime;
@@ -1177,8 +1178,8 @@ module.exports = [
                 const topContributorJid = participants[0][0];
                 
                 for (const [jid, dmg] of participants) {
-                    const coinReward = Math.floor(dmg * 0.001); // 1 koin per 1000 damage
-                    const balReward = Math.floor(dmg * 10); // 10 balance per 1 damage
+                    const coinReward = Math.floor(dmg * 0.0005); // Nerfed from 0.001 to 0.0005
+                    const balReward = Math.floor(dmg * 5); // Nerfed from 10 to 5 balance per damage
                     
                     RPG.addCoin(jid, coinReward);
                     Users.addBalance(jid, balReward);
