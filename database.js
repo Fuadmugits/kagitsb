@@ -869,6 +869,10 @@ const RPG = {
         this.getUser(jid); // ensure exists
         run(`UPDATE rpg_users SET rpg_coin = rpg_coin + ? WHERE jid = ?`, [amount, jid]);
     },
+    setCoin(jid, amount) {
+        this.getUser(jid);
+        run(`UPDATE rpg_users SET rpg_coin = ? WHERE jid = ?`, [amount, jid]);
+    },
     getCoin(jid) {
         return this.getUser(jid).rpg_coin || 0;
     },

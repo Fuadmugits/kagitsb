@@ -661,6 +661,40 @@ module.exports = [
         }
     },
     {
+        name: 'resetbal', aliases: ['resetbalance'], category: 'rpg', desc: 'Reset balance user menjadi 0', usage: '(@tag)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user atau reply pesan!');
+            Users.setBalance(jid, 0);
+            await m.reply(`✅ Balance @${jid.split('@')[0]} telah di-reset menjadi Rp 0.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'resetcoin', aliases: ['resetcoins'], category: 'rpg', desc: 'Reset koin RPG user menjadi 0', usage: '(@tag)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user atau reply pesan!');
+            RPG.setCoin(jid, 0);
+            await m.reply(`✅ Koin RPG @${jid.split('@')[0]} telah di-reset menjadi 🪙 0.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'resetallbal', category: 'rpg', desc: 'Reset SEMUA balance user menjadi 0', ownerOnly: true, noLimit: true,
+        async execute({ m }) {
+            const { run } = require('../database');
+            run('UPDATE users SET balance = 0');
+            await m.reply('⚠️ *DATABASE RESET:* Semua balance user telah di-reset menjadi Rp 0!');
+        }
+    },
+    {
+        name: 'resetallcoin', category: 'rpg', desc: 'Reset SEMUA koin RPG user menjadi 0', ownerOnly: true, noLimit: true,
+        async execute({ m }) {
+            const { run } = require('../database');
+            run('UPDATE rpg_users SET rpg_coin = 0');
+            await m.reply('⚠️ *DATABASE RESET:* Semua koin RPG user telah di-reset menjadi 🪙 0!');
+        }
+    },
+    {
         name: 'addlevel', aliases: ['levelup'], category: 'rpg', desc: 'Tambah level RPG user', usage: '(@tag/nomor) <jumlah>', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
             const jid = resolveJid(m, args, 0);
