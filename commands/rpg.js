@@ -1103,7 +1103,7 @@ module.exports = [
             
             // Cooldown 5 detik untuk raid agar tidak spamming terlalu cepat
             if (userRpg.last_raid_attack) {
-                const last = new Date(userRpg.last_raid_attack).getTime();
+                const last = parseInt(userRpg.last_raid_attack);
                 if (Date.now() - last < 5 * 1000) {
                     const sisa = Math.ceil((5 * 1000 - (Date.now() - last)) / 1000);
                     return m.reply(`⏳ Tunggu ${sisa} detik lagi untuk menyerang kembali!`);
@@ -1162,11 +1162,13 @@ module.exports = [
 
             const res = Raid.attack(m.chat, m.sender, damage);
             
-            // Update cooldown di db (5 detik + efek stun jika ada)
+            // Update cooldown di db (Unix Timestamp)
             const { run } = require('../database');
             const totalCooldown = (5 * 1000) + stunEffect;
-            try { run(`UPDATE rpg_users SET last_raid_attack = datetime('now', '+${totalCooldown/1000} seconds') WHERE jid = ?`, [m.sender]); } catch {
-                try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = datetime('now', '+${totalCooldown/1000} seconds') WHERE jid = ?`, [m.sender]); } catch {}
+            const cooldownExpire = Date.now() + stunEffect; // Store current time (or future time if stun)
+            // We store the LAST ATTACK time, but if stunned, we add the stun duration to the "last attack" to simulate a delay
+            try { run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [Date.now() + stunEffect, m.sender]); } catch {
+                try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [Date.now() + stunEffect, m.sender]); } catch {}
             }
 
             if (res.status === 'dead') {
