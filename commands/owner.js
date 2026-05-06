@@ -724,5 +724,67 @@ module.exports = [
             Users.setLevel(jid, 1);
             await m.reply(`✅ Level RPG @${jid.split('@')[0]} telah direset ke 1`, { mentions: [jid] });
         }
+    },
+    {
+        name: 'ban', category: 'owner', desc: 'Ban user dari bot', usage: '(@tag)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user!');
+            run('UPDATE users SET is_banned = 1 WHERE jid = ?', [jid]);
+            await m.reply(`✅ User @${jid.split('@')[0]} telah di-ban.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'unban', category: 'owner', desc: 'Buka ban user', usage: '(@tag)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user!');
+            run('UPDATE users SET is_banned = 0 WHERE jid = ?', [jid]);
+            await m.reply(`✅ User @${jid.split('@')[0]} telah di-unban.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'jail', category: 'owner', desc: 'Masukkan user ke penjara (mencegah command)', usage: '(@tag) <menit>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            const mins = parseInt(m.quoted?.sender ? args[0] : args[1]) || 60;
+            if (!jid) return m.reply('❌ Tag user!');
+            Users.setJail(jid, mins);
+            await m.reply(`✅ User @${jid.split('@')[0]} dimasukkan ke penjara selama ${mins} menit.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'unjail', category: 'owner', desc: 'Keluarkan user dari penjara', usage: '(@tag)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user!');
+            Users.setJail(jid, 0);
+            await m.reply(`✅ User @${jid.split('@')[0]} telah dikeluarkan dari penjara.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'checkuser', aliases: ['statususer'], category: 'owner', desc: 'Cek status lengkap user', usage: '(@tag)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user!');
+            const user = Users.get(jid);
+            if (!user) return m.reply('❌ User tidak ditemukan di database.');
+            
+            const isJailed = Users.isJailed(jid);
+            const jailTime = Users.getJailTimeLeft(jid);
+            
+            let text = `👤 *USER STATUS:* @${jid.split('@')[0]}\n\n`;
+            text += `🏷️ Nama: ${user.name}\n`;
+            text += `🎖️ Role: ${user.role.toUpperCase()}\n`;
+            text += `📊 Level: ${user.level} | EXP: ${user.exp}\n`;
+            text += `💰 Balance: Rp ${formatNumber(user.balance)}\n`;
+            text += `🪙 Koin RPG: ${formatNumber(RPG.getCoin(jid))}\n`;
+            text += `🔋 Limit: ${user.limit_count}\n`;
+            text += `🚫 Banned: ${user.is_banned ? 'YA 🔴' : 'TIDAK 🟢'}\n`;
+            text += `🔒 Jailed: ${isJailed ? `YA (${jailTime}m sisa) 🟠` : 'TIDAK 🟢'}\n`;
+            text += `📅 Terdaftar: ${user.created_at}`;
+            
+            await m.reply(text, { mentions: [jid] });
+        }
     }
 ];
