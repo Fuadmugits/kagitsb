@@ -59,6 +59,40 @@ module.exports = [
         }
     },
     {
+        name: 'addpremgroup', aliases: ['addpremsc', 'addpremgc'], category: 'owner', desc: 'Tambah premium untuk seluruh anggota grup', usage: '(hari)', ownerOnly: true, groupOnly: true, noLimit: true,
+        async execute({ sock, m, args }) {
+            const days = parseInt(args[0]) || 30;
+            const metadata = await sock.groupMetadata(m.chat);
+            const participants = metadata.participants;
+            
+            let count = 0;
+            for (const p of participants) {
+                const jid = p.id;
+                Users.getOrCreate(jid);
+                Users.setPremium(jid, days);
+                count++;
+            }
+            
+            await m.reply(`✅ *Premium Massal Berhasil!*\n\n👥 Total: ${count} member\n⏳ Durasi: ${days} hari\n\nSeluruh anggota grup ini sekarang menjadi Premium.`);
+        }
+    },
+    {
+        name: 'delpremgroup', aliases: ['delpremsc', 'delpremgc'], category: 'owner', desc: 'Hapus premium untuk seluruh anggota grup', ownerOnly: true, groupOnly: true, noLimit: true,
+        async execute({ sock, m }) {
+            const metadata = await sock.groupMetadata(m.chat);
+            const participants = metadata.participants;
+            
+            let count = 0;
+            for (const p of participants) {
+                const jid = p.id;
+                Users.removePremium(jid);
+                count++;
+            }
+            
+            await m.reply(`✅ *Premium Massal Dihapus!*\n\n👥 Total: ${count} member\n\nSeluruh anggota grup ini kembali menjadi user Free.`);
+        }
+    },
+    {
         name: 'delprem', category: 'owner', desc: 'Hapus premium', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
             const jid = resolveJid(m, args);
