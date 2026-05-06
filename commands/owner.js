@@ -603,5 +603,58 @@ module.exports = [
             RPG.addInventory(jid, item.type, JSON.stringify(item));
             await m.reply(`✅ *ITEM BERHASIL DIBERIKAN!* 🎁\n\n👤 Penerima: @${jid.split('@')[0]}\n📦 Item: ${item.name}\n✨ Rarity: ${item.rarity}\n🏅 Grade: ${item.grade}\n📊 Stats: P:${item.stats.power} D:${item.stats.defense} L:${item.stats.luck}\n\n_Item sudah dimasukkan ke inventory (.inv)_`, { mentions: [jid] });
         }
+    },
+    {
+        name: 'giveset', aliases: ['gs'], category: 'rpg', desc: 'Berikan 1 set equipment boss ke user', usage: '(@tag/nomor) <bossId> <grade>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const { createSpecificRaidItem, ITEM_TYPES } = require('../lib/rpg');
+            const jid = resolveJid(m, args, 0);
+            const bossId = parseInt(m.quoted?.sender ? args[0] : args[1]);
+            const grade = (m.quoted?.sender ? args[1] : args[2])?.toUpperCase() || 'S';
+
+            if (!jid || !bossId) return m.reply('❌ Format: .giveset @tag <bossId> <grade>\nContoh: .giveset @user 123 SSS+');
+            
+            let count = 0;
+            for (const type of ITEM_TYPES) {
+                const item = createSpecificRaidItem(bossId, type, grade);
+                if (item) {
+                    RPG.addInventory(jid, item.type, JSON.stringify(item));
+                    count++;
+                }
+            }
+            
+            await m.reply(`✅ *SET BERHASIL DIBERIKAN!* 🎁\n\n👤 Penerima: @${jid.split('@')[0]}\n👾 Boss ID: ${bossId}\n🏅 Grade: ${grade}\n📦 Total: ${count} item (Full Set)\n\n_Cek di .inv_`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'addlevel', aliases: ['levelup'], category: 'rpg', desc: 'Tambah level RPG user', usage: '(@tag/nomor) <jumlah>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            const amount = parseInt(m.quoted?.sender ? args[0] : args[1]) || 1;
+            if (!jid) return m.reply('❌ Format: .addlevel @tag 10');
+            Users.getOrCreate(jid);
+            Users.addLevel(jid, amount);
+            await m.reply(`✅ Berhasil menambah *${amount} level* untuk @${jid.split('@')[0]}`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'setlevelrpg', aliases: ['slr'], category: 'rpg', desc: 'Set level RPG user', usage: '(@tag/nomor) <level>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            const level = parseInt(m.quoted?.sender ? args[0] : args[1]) || 1;
+            if (!jid) return m.reply('❌ Format: .setlevelrpg @tag 100');
+            Users.getOrCreate(jid);
+            Users.setLevel(jid, level);
+            await m.reply(`✅ Level RPG @${jid.split('@')[0]} diatur ke *${level}*`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'resetlevel', category: 'rpg', desc: 'Reset level RPG user ke 1', usage: '(@tag/nomor)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user!');
+            Users.setLevel(jid, 1);
+            await m.reply(`✅ Level RPG @${jid.split('@')[0]} telah direset ke 1`, { mentions: [jid] });
+        }
     }
 ];

@@ -168,7 +168,9 @@ async function initDatabase() {
     try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_luck INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN hp INTEGER DEFAULT 1000'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT'); } catch {}
-    try { db.run('ALTER TABLE rpg_users ADD COLUMN equipped_title TEXT'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN equipped_aura TEXT'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN unlocked_auras TEXT DEFAULT "[]"'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN boss_kills TEXT DEFAULT "{}"'); } catch {}
 
     // Redeem Codes System
     db.run(`CREATE TABLE IF NOT EXISTS gift_codes (
@@ -246,6 +248,8 @@ const Users = {
     },
     setBalance(jid, amount) { run('UPDATE users SET balance = ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
     addLimit(jid, amount) { run('UPDATE users SET limit_count = limit_count + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
+    addLevel(jid, amount) { run('UPDATE users SET level = level + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
+    setLevel(jid, amount) { run('UPDATE users SET level = ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]); },
     deductLimit(jid) { run('UPDATE users SET limit_count = limit_count - 1, total_commands = total_commands + 1, updated_at = datetime("now") WHERE jid = ?', [jid]); },
     addExp(jid, amount) {
         run('UPDATE users SET exp = exp + ?, updated_at = datetime("now") WHERE jid = ?', [amount, jid]);
@@ -800,8 +804,25 @@ const RPG = {
         run(`UPDATE rpg_users SET ${slot} = ? WHERE jid = ?`, [itemDataJSON, jid]);
         return true;
     },
-    setTitle(jid, titleId) {
-        run('UPDATE rpg_users SET equipped_title = ? WHERE jid = ?', [titleId, jid]);
+    setAura(jid, auraId) {
+        run('UPDATE rpg_users SET equipped_aura = ? WHERE jid = ?', [auraId, jid]);
+    },
+    addUnlockedAura(jid, auraId) {
+        const user = this.getUser(jid);
+        let auras = [];
+        try { auras = JSON.parse(user.unlocked_auras || '[]'); } catch(e) {}
+        if (!auras.includes(auraId)) {
+            auras.push(auraId);
+            run('UPDATE rpg_users SET unlocked_auras = ? WHERE jid = ?', [JSON.stringify(auras), jid]);
+        }
+    },
+    addBossKill(jid, bossId) {
+        const user = this.getUser(jid);
+        let kills = {};
+        try { kills = JSON.parse(user.boss_kills || '{}'); } catch(e) {}
+        kills[bossId] = (kills[bossId] || 0) + 1;
+        run('UPDATE rpg_users SET boss_kills = ? WHERE jid = ?', [JSON.stringify(kills), jid]);
+        return kills[bossId];
     },
     addStat(jid, statType, amount) {
         const validStats = ['power', 'defense', 'luck'];

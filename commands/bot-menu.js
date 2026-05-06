@@ -68,8 +68,9 @@ module.exports = [
                 text += `╔═══ ❖ ${catNames[cat] || cat.toUpperCase()} ❖ ═══╗\n`;
                 for (const cmd of categories[cat]) {
                     const prem = cmd.premiumOnly ? ' 🔸' : '';
+                    const own = cmd.ownerOnly ? ' 👑' : '';
                     const usage = cmd.usage ? ` ${cmd.usage}` : '';
-                    text += `║ ♧ ${prefix}${cmd.name}${usage}${prem}\n`;
+                    text += `║ ♧ ${prefix}${cmd.name}${usage}${prem}${own}\n`;
                 }
                 text += `╚═══════════════════════╝\n`;
             }

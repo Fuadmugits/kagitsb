@@ -273,6 +273,13 @@ module.exports = [
             const items = RPG.getInventory(m.sender);
             
             let text = `╭───「 🎒 *INVENTORY & EQUIPMENT* 」\n│\n`;
+            
+            // Tampilkan Aura jika ada
+            if (userRpg.equipped_aura) {
+                const aura = RPG_TITLES.find(t => t.id === userRpg.equipped_aura);
+                if (aura) text += `│ 🏅 *Aura Aktif:* [ ${aura.name} ]\n│\n`;
+            }
+
             text += `│ 👕 *[ EQUIPMENT TERPAKAI ]*\n`;
             
             const slots = {
@@ -334,44 +341,61 @@ module.exports = [
                     });
                 }
             }
-            text += `╰──────────────\n\n_Ketik .equip <id> untuk memakai item_`;
+            text += `╰──────────────\n\n_Ketik .equip <id> untuk memakai item_\n_Ketik .rpgauras untuk melihat koleksi Aura_`;
             await m.reply(text);
         }
     },
     {
-        name: 'rpgtitles', aliases: ['rtitles'], category: 'rpg', desc: 'Lihat daftar RPG Titles yang bisa digunakan',
+        name: 'rpgauras', aliases: ['auras', 'rauras'], category: 'rpg', desc: 'Lihat koleksi Aura RPG kamu',
         async execute({ sock, m }) {
-            const { RPG_TITLES } = require('../lib/titles');
-            let text = `╭───「 🏅 *DAFTAR RPG TITLES* 」\n│\n`;
-            text += `│ Terdapat total *${RPG_TITLES.length}* Titles!\n`;
-            text += `│ Gunakan .rpgtitleinfo <id> untuk melihat info detail title.\n│\n`;
+            const userRpg = RPG.getUser(m.sender);
+            let unlocked = [];
+            try { unlocked = JSON.parse(userRpg.unlocked_auras || '[]'); } catch(e) {}
             
-            const gods = RPG_TITLES.filter(t => t.stats && t.stats.power >= 10);
-            text += `│ 👑 *GOD TIER TITLES (Preview):*\n`;
-            gods.slice(0, 10).forEach(t => {
-                text += `│ 🆔 [${t.id}] ${t.name}\n`;
-            });
-            text += `│\n╰──────────────\n\n_Ketik .equiptitle <id> untuk memakai._\n_Saat ini semua title terbuka selama event!_`;
+            let text = `╭───「 🏅 *KOLEKSI AURA RPG* 」\n│\n`;
+            text += `│ Total Aura Terbuka: *${unlocked.length}* / ${RPG_TITLES.length}\n│\n`;
+            
+            if (unlocked.length === 0) {
+                text += `│ _Kamu belum memiliki Aura._\n│ _Kalahkan Raid Boss untuk mendapatkan Aura!_\n`;
+            } else {
+                unlocked.forEach(id => {
+                    const aura = RPG_TITLES.find(t => t.id === id);
+                    if (aura) {
+                        const isEquipped = userRpg.equipped_aura === id ? ' ✅' : '';
+                        text += `│ 🆔 [${id}] ${aura.name}${isEquipped}\n`;
+                    }
+                });
+            }
+            
+            text += `│\n╰──────────────\n\n_Ketik .rpgaurainfo <id> untuk detail._\n_Ketik .equipaura <id> untuk memakai Aura._`;
             await m.reply(text);
         }
     },
     {
-        name: 'rpgtitleinfo', category: 'rpg', desc: 'Lihat info detail sebuah title', usage: '<id>',
+        name: 'rpgaurainfo', aliases: ['aurainfo'], category: 'rpg', desc: 'Lihat info detail sebuah aura', usage: '<id>',
         async execute({ sock, m, args }) {
             const id = args[0]?.toUpperCase();
-            if (!id) return m.reply('❌ Masukkan ID Title! Contoh: .rpgtitleinfo T1');
-            const { RPG_TITLES } = require('../lib/titles');
-            const title = RPG_TITLES.find(t => t.id === id);
-            if (!title) return m.reply('❌ Title tidak ditemukan!');
+            if (!id) return m.reply('❌ Masukkan ID Aura! Contoh: .rpgaurainfo T1');
+            const aura = RPG_TITLES.find(t => t.id === id);
+            if (!aura) return m.reply('❌ Aura tidak ditemukan!');
             
-            let text = `🏅 *TITLE INFO: ${title.name}*\n\n`;
-            text += `📌 *Syarat / Cara Dapat:*\n${title.requirement}\n\n`;
+            let text = `🏅 *AURA INFO: ${aura.name}*\n\n`;
+            
+            // Tampilkan requirement dinamis untuk Aura Boss (T78-T200)
+            const idNum = parseInt(id.replace('T', ''));
+            if (idNum >= 78 && idNum <= 200) {
+                const bossId = idNum - 77;
+                text += `📌 *Cara Mendapatkan:*\nKalahkan Raid Boss ID *${bossId}* sebanyak 77x (Jaminan Pity) atau dapatkan drop langka (1%).\n\n`;
+            } else {
+                text += `📌 *Cara Mendapatkan:*\n${aura.requirement}\n\n`;
+            }
+
             text += `📊 *Stat Multipliers:*\n`;
-            if (title.stats) {
-                text += `🗡️ Power: x${title.stats.power}\n`;
-                text += `🛡️ Defense: x${title.stats.defense}\n`;
-                text += `🍀 Luck: x${title.stats.luck}\n`;
-                text += `✨ EXP: x${title.stats.exp}\n`;
+            if (aura.stats) {
+                text += `🗡️ Power: x${aura.stats.power}\n`;
+                text += `🛡️ Defense: x${aura.stats.defense}\n`;
+                text += `🍀 Luck: x${aura.stats.luck}\n`;
+                text += `✨ EXP: x${aura.stats.exp}\n`;
             } else {
                 text += `_Cosmetic Only (Tidak ada penambahan stat)_\n`;
             }
@@ -379,17 +403,51 @@ module.exports = [
         }
     },
     {
-        name: 'equiptitle', category: 'rpg', desc: 'Pakai RPG Title untuk mendapatkan stat boost', usage: '<id>',
+        name: 'equipaura', aliases: ['setaura'], category: 'rpg', desc: 'Pakai Aura RPG', usage: '<id>',
         async execute({ sock, m, args }) {
             const id = args[0]?.toUpperCase();
-            if (!id) return m.reply('❌ Masukkan ID Title yang ingin dipakai! Contoh: .equiptitle T200\nKetik .rpgtitles untuk melihat daftar ID.');
-            const { RPG_TITLES } = require('../lib/titles');
-            const title = RPG_TITLES.find(t => t.id === id);
-            if (!title) return m.reply('❌ Title tidak ditemukan!');
+            if (!id) return m.reply('❌ Masukkan ID Aura! Contoh: .equipaura T181');
             
-            RPG.setTitle(m.sender, id);
+            const userRpg = RPG.getUser(m.sender);
+            let unlocked = [];
+            try { unlocked = JSON.parse(userRpg.unlocked_auras || '[]'); } catch(e) {}
             
-            await m.reply(`✅ Berhasil memakai title *${title.name}*!\n\nKetik .rpgprofile atau .inv untuk melihat stat kamu sekarang.`);
+            if (!unlocked.includes(id)) return m.reply('❌ Kamu belum memiliki Aura ini! Kalahkan Raid Boss untuk mendapatkannya.');
+            
+            const aura = RPG_TITLES.find(t => t.id === id);
+            if (!aura) return m.reply('❌ Aura tidak ditemukan!');
+            
+            RPG.setAura(m.sender, id);
+            await m.reply(`✅ Berhasil memakai Aura *${aura.name}*!`);
+        }
+    },
+    {
+        name: 'rpgprofile', aliases: ['rprofile', 'stats'], category: 'rpg', desc: 'Lihat profil dan stat RPG kamu',
+        async execute({ sock, m }) {
+            const userRpg = RPG.getUser(m.sender);
+            const user = Users.get(m.sender);
+            const stats = calculateTotalStats(m.sender, m.chat);
+            
+            let auraName = 'None';
+            if (userRpg.equipped_aura) {
+                const aura = RPG_TITLES.find(t => t.id === userRpg.equipped_aura);
+                if (aura) auraName = aura.name;
+            }
+            
+            let text = `╭───「 👤 *RPG PROFILE* 」\n`;
+            text += `│ 🏅 *Gelar/Aura:* [ ${auraName} ]\n`;
+            text += `│ 👤 *Nama:* ${user.name}\n`;
+            text += `│ 🌟 *Level:* ${user.level} (EXP: ${user.exp})\n`;
+            text += `│ 🪙 *Koin RPG:* ${formatNumber(userRpg.rpg_coin || 0)}\n`;
+            text += `│ ❤️ *HP:* ${formatNumber(userRpg.hp || 0)} / 1.000\n`;
+            text += `│\n│ 📊 *TOTAL STATS (Final):*\n`;
+            text += `│ 🗡️ Power: ${formatNumber(stats.power)}\n`;
+            text += `│ 🛡️ Defense: ${formatNumber(stats.defense)}\n`;
+            text += `│ 🍀 Luck: ${formatNumber(stats.luck)}\n`;
+            text += `│ ✨ EXP Multi: x${stats.expMult}\n`;
+            text += `│\n│ 💠 *ASCENSION:* P:${userRpg.asc_power || 0} | D:${userRpg.asc_defense || 0} | L:${userRpg.asc_luck || 0}\n`;
+            text += `╰──────────────\n\n_Gunakan .inv untuk melihat equipment_`;
+            await m.reply(text);
         }
     },
     {
@@ -869,7 +927,7 @@ module.exports = [
         }
     },
     {
-        name: 'buyrpgcoin', category: 'rpg', desc: 'Beli Koin RPG dengan Balance (1 Koin = 50.000 Balance)', usage: '<jumlah>',
+        name: 'buyrpgcoin', aliases: ['buycoinrpg', 'beli-rpgcoin', 'beli-coinrpg'], category: 'rpg', desc: 'Beli Koin RPG dengan Balance (1 Koin = 1.000.000 Balance)', usage: '<jumlah>',
         async execute({ sock, m, args }) {
             const amount = parseInt(args[0]);
             if (isNaN(amount) || amount < 1) return m.reply('❌ Masukkan jumlah koin RPG yang ingin dibeli.\nContoh: .buyrpgcoin 5');
@@ -1043,11 +1101,11 @@ module.exports = [
             const stats = calculateTotalStats(m.sender, m.chat);
             const userRpg = RPG.getUser(m.sender);
             
-            // Cooldown 15 detik untuk raid agar tidak spamming terlalu cepat dibanding monster biasa
+            // Cooldown 3 detik untuk raid agar tidak spamming terlalu cepat
             if (userRpg.last_raid_attack) {
                 const last = new Date(userRpg.last_raid_attack).getTime();
-                if (Date.now() - last < 15 * 1000) {
-                    const sisa = Math.ceil((15 * 1000 - (Date.now() - last)) / 1000);
+                if (Date.now() - last < 3 * 1000) {
+                    const sisa = Math.ceil((3 * 1000 - (Date.now() - last)) / 1000);
                     return m.reply(`⏳ Tunggu ${sisa} detik lagi untuk menyerang kembali!`);
                 }
             }
@@ -1104,9 +1162,9 @@ module.exports = [
 
             const res = Raid.attack(m.chat, m.sender, damage);
             
-            // Update cooldown di db
+            // Update cooldown di db (3 detik + efek stun jika ada)
             const { run } = require('../database');
-            const totalCooldown = (15 * 1000) + stunEffect;
+            const totalCooldown = (3 * 1000) + stunEffect;
             try { run(`UPDATE rpg_users SET last_raid_attack = datetime('now', '+${totalCooldown/1000} seconds') WHERE jid = ?`, [m.sender]); } catch {
                 try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = datetime('now', '+${totalCooldown/1000} seconds') WHERE jid = ?`, [m.sender]); } catch {}
             }
@@ -1125,6 +1183,28 @@ module.exports = [
                     
                     rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} | 💵 +Rp ${formatNumber(balReward)}`;
                     
+                    // --- BOSS AURA DROP SYSTEM ---
+                    // Aura ID mapped to Boss ID: T77 + bossId
+                    // (Boss ID 1 gets T78, Boss ID 123 gets T200)
+                    const auraId = `T${77 + res.raid.id}`;
+                    const userRpg = RPG.getUser(jid);
+                    let unlocked = [];
+                    try { unlocked = JSON.parse(userRpg.unlocked_auras || '[]'); } catch(e) {}
+
+                    if (!unlocked.includes(auraId)) {
+                        const killCount = RPG.addBossKill(jid, res.raid.id);
+                        const auraDef = RPG_TITLES.find(t => t.id === auraId);
+                        
+                        // Drop chance: 1% (0.01) OR Pity at 77 kills
+                        if (Math.random() < 0.01 || killCount >= 77) {
+                            RPG.addUnlockedAura(jid, auraId);
+                            rewardMsg += `\n    ✨ *AURA DROP!* Kamu mendapatkan Aura: *${auraDef ? auraDef.name : auraId}* ${killCount >= 77 ? '(Pity 77/77)' : '(LUCKY!)'}`;
+                        } else {
+                            rewardMsg += `\n    🔸 Progress Aura: *${killCount}/77* kills.`;
+                        }
+                    }
+                    // -----------------------------
+
                     // Peluang drop item untuk semua peserta (Base 5% + Luck factor)
                     const stats = calculateTotalStats(jid, m.chat);
                     const raidDropChance = 0.05 * (1 + (stats.luck / 500)); // Every 500 luck doubles raid drop chance
