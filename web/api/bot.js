@@ -36,10 +36,10 @@ module.exports = function() {
             const sock = getSocket();
             if (!sock) return res.status(400).json({ error: 'Bot is not initializing' });
             
-            const { phone } = req.body;
-            if (!phone) return res.status(400).json({ error: 'Phone number required' });
+            let phoneNum = phone.replace(/[^0-9]/g, '');
+            if (phoneNum.startsWith('0')) phoneNum = '62' + phoneNum.slice(1);
 
-            const code = await sock.requestPairingCode(phone.replace(/[^0-9]/g, ''));
+            const code = await sock.requestPairingCode(phoneNum);
             console.log('\n🔑 KODE PAIRING ANDA:', code, '\n');
             res.json({ code });
         } catch (e) { res.status(500).json({ error: e.message }); }
