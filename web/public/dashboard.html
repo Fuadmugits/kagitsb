@@ -196,7 +196,15 @@ document.getElementById('userName').textContent = user.username || 'Admin';
 document.getElementById('userRole').textContent = user.role || 'admin';
 document.getElementById('userInitial').textContent = (user.username || 'A')[0].toUpperCase();
 
-const API = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...opts.headers } }).then(r => r.json());
+const API = async (url, opts = {}) => {
+    const r = await fetch(url, { ...opts, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', ...opts.headers } });
+    const data = await r.json();
+    if (r.status === 401 || data.error === 'Invalid token') {
+        logout();
+        throw new Error('Invalid token');
+    }
+    return data;
+};
 let allUsers = [];
 
 // Socket.IO

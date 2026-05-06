@@ -1,6 +1,7 @@
 const { Users, GroupLevels, RPG } = require('../database');
 const { formatNumber, randomInt, pickRandom } = require('../lib/functions');
 const { calculateTotalStats, generateItem, generateRaidItem, MONSTERS, ITEM_TYPES, RPG_SHOP, Raid, RAID_BOSSES } = require('../lib/rpg');
+const { RPG_TITLES } = require('../lib/titles');
 
 module.exports = [
     {
@@ -225,6 +226,11 @@ module.exports = [
             else if (monster.class === 'kuat') expGained = randomInt(50, 150);
             else expGained = randomInt(500, 2000);
             
+            // Apply title exp multiplier
+            if (stats.expMult && stats.expMult > 1.0) {
+                expGained = Math.floor(expGained * stats.expMult);
+            }
+            
             const { Settings } = require('../database');
             const abuseVal = Settings.get('adminabuse_' + m.chat);
             const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
@@ -263,19 +269,127 @@ module.exports = [
     {
         name: 'inventory', aliases: ['inv', 'tas'], category: 'rpg', desc: 'Lihat isi tas RPG kamu',
         async execute({ sock, m }) {
+            const userRpg = RPG.getUser(m.sender);
             const items = RPG.getInventory(m.sender);
-            if (!items.length) return m.reply('🎒 Tas kamu kosong.');
             
-            let text = `╭───「 🎒 *INVENTORY RPG* 」\n`;
-            items.forEach((row) => {
-                try {
-                    const item = JSON.parse(row.item_data);
-                    text += `│ 🆔 [${row.id}] ${item.name} (${item.grade})\n`;
-                    text += `│    └ Rarity: ${item.rarity} | Pwr: ${item.stats.power} | Def: ${item.stats.defense}\n`;
-                } catch(e) {}
-            });
+            let text = `╭───「 🎒 *INVENTORY & EQUIPMENT* 」\n│\n`;
+            text += `│ 👕 *[ EQUIPMENT TERPAKAI ]*\n`;
+            
+            const slots = {
+                weapon: '🗡️ Weapon',
+                helmet: '🪖 Helmet',
+                armor: '🛡️ Armor',
+                glove: '🧤 Glove',
+                legging: '👖 Legging',
+                shoe: '👢 Shoe'
+            };
+            
+            let totalPower = 0; let totalDef = 0; let totalLuck = 0;
+            
+            for (const slot in slots) {
+                if (userRpg[slot]) {
+                    try {
+                        const item = JSON.parse(userRpg[slot]);
+                        const dur = item.durability ?? 100;
+                        const durIcon = dur > 50 ? '🟢' : dur > 20 ? '🟡' : '🔴';
+                        text += `│ ${slots[slot]}: ${item.name} ${durIcon} (${dur}% Durability)\n`;
+                        if (dur > 0) {
+                            totalPower += item.stats.power || 0;
+                            totalDef += item.stats.defense || 0;
+                            totalLuck += item.stats.luck || 0;
+                        }
+                    } catch(e) {
+                        text += `│ ${slots[slot]}: [Error]\n`;
+                    }
+                } else {
+                    text += `│ ${slots[slot]}: KOSONG\n`;
+                }
+            }
+            
+            text += `│\n│ 📊 *Stat Equipment Aktif:*\n│ 🗡️ Pwr: +${formatNumber(totalPower)} | 🛡️ Def: +${formatNumber(totalDef)} | 🍀 Luck: +${formatNumber(totalLuck)}\n│\n`;
+            
+            text += `│ 🎒 *[ ISI TAS / BELUM TERPAKAI ]*\n`;
+            if (!items.length) {
+                text += `│ _Tas kamu kosong._\n`;
+            } else {
+                const grouped = {};
+                items.forEach((row) => {
+                    try {
+                        const item = JSON.parse(row.item_data);
+                        const type = item.type || 'Lainnya';
+                        if (!grouped[type]) grouped[type] = [];
+                        grouped[type].push({ id: row.id, item, amount: row.amount });
+                    } catch(e) {}
+                });
+                
+                for (const type in grouped) {
+                    text += `│ *[ ${type.toUpperCase()} ]*\n`;
+                    grouped[type].forEach(g => {
+                        text += `│ 🆔 [${g.id}] ${g.item.name} (${g.item.grade})\n`;
+                        if (g.item.type !== 'consumable') {
+                            text += `│    └ Rarity: ${g.item.rarity} | Pwr: ${g.item.stats.power} | Def: ${g.item.stats.defense}\n`;
+                        } else {
+                            text += `│    └ x${g.amount} | ${g.item.desc || 'Consumable'}\n`;
+                        }
+                    });
+                }
+            }
             text += `╰──────────────\n\n_Ketik .equip <id> untuk memakai item_`;
             await m.reply(text);
+        }
+    },
+    {
+        name: 'rpgtitles', aliases: ['rtitles'], category: 'rpg', desc: 'Lihat daftar RPG Titles yang bisa digunakan',
+        async execute({ sock, m }) {
+            const { RPG_TITLES } = require('../lib/titles');
+            let text = `╭───「 🏅 *DAFTAR RPG TITLES* 」\n│\n`;
+            text += `│ Terdapat total *${RPG_TITLES.length}* Titles!\n`;
+            text += `│ Gunakan .rpgtitleinfo <id> untuk melihat info detail title.\n│\n`;
+            
+            const gods = RPG_TITLES.filter(t => t.stats && t.stats.power >= 10);
+            text += `│ 👑 *GOD TIER TITLES (Preview):*\n`;
+            gods.slice(0, 10).forEach(t => {
+                text += `│ 🆔 [${t.id}] ${t.name}\n`;
+            });
+            text += `│\n╰──────────────\n\n_Ketik .equiptitle <id> untuk memakai._\n_Saat ini semua title terbuka selama event!_`;
+            await m.reply(text);
+        }
+    },
+    {
+        name: 'rpgtitleinfo', category: 'rpg', desc: 'Lihat info detail sebuah title', usage: '<id>',
+        async execute({ sock, m, args }) {
+            const id = args[0]?.toUpperCase();
+            if (!id) return m.reply('❌ Masukkan ID Title! Contoh: .rpgtitleinfo T1');
+            const { RPG_TITLES } = require('../lib/titles');
+            const title = RPG_TITLES.find(t => t.id === id);
+            if (!title) return m.reply('❌ Title tidak ditemukan!');
+            
+            let text = `🏅 *TITLE INFO: ${title.name}*\n\n`;
+            text += `📌 *Syarat / Cara Dapat:*\n${title.requirement}\n\n`;
+            text += `📊 *Stat Multipliers:*\n`;
+            if (title.stats) {
+                text += `🗡️ Power: x${title.stats.power}\n`;
+                text += `🛡️ Defense: x${title.stats.defense}\n`;
+                text += `🍀 Luck: x${title.stats.luck}\n`;
+                text += `✨ EXP: x${title.stats.exp}\n`;
+            } else {
+                text += `_Cosmetic Only (Tidak ada penambahan stat)_\n`;
+            }
+            await m.reply(text);
+        }
+    },
+    {
+        name: 'equiptitle', category: 'rpg', desc: 'Pakai RPG Title untuk mendapatkan stat boost', usage: '<id>',
+        async execute({ sock, m, args }) {
+            const id = args[0]?.toUpperCase();
+            if (!id) return m.reply('❌ Masukkan ID Title yang ingin dipakai! Contoh: .equiptitle T200\nKetik .rpgtitles untuk melihat daftar ID.');
+            const { RPG_TITLES } = require('../lib/titles');
+            const title = RPG_TITLES.find(t => t.id === id);
+            if (!title) return m.reply('❌ Title tidak ditemukan!');
+            
+            RPG.setTitle(m.sender, id);
+            
+            await m.reply(`✅ Berhasil memakai title *${title.name}*!\n\nKetik .rpgprofile atau .inv untuk melihat stat kamu sekarang.`);
         }
     },
     {

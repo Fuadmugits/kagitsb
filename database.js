@@ -168,6 +168,7 @@ async function initDatabase() {
     try { db.run('ALTER TABLE rpg_users ADD COLUMN asc_luck INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN hp INTEGER DEFAULT 1000'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN equipped_title TEXT'); } catch {}
 
     // Redeem Codes System
     db.run(`CREATE TABLE IF NOT EXISTS gift_codes (
@@ -798,6 +799,9 @@ const RPG = {
         if (!slots.includes(slot)) return false;
         run(`UPDATE rpg_users SET ${slot} = ? WHERE jid = ?`, [itemDataJSON, jid]);
         return true;
+    },
+    setTitle(jid, titleId) {
+        run('UPDATE rpg_users SET equipped_title = ? WHERE jid = ?', [titleId, jid]);
     },
     addStat(jid, statType, amount) {
         const validStats = ['power', 'defense', 'luck'];
