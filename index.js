@@ -51,22 +51,26 @@ async function main() {
         
         // 5. Register group participants handler (survives reconnects)
         onGroupParticipants(async (sock, { id, participants, action }) => {
+            console.log(`👥 [Welcome System] Received update for group ${id}: ${action} for ${participants.join(', ')}`);
             const { Settings } = require('./database');
             const isWelcomeEnabled = Settings.get(`welcome_${id}`) === 'true';
+            console.log(`👥 [Welcome System] Group ${id} welcome status: ${isWelcomeEnabled ? 'ENABLED' : 'DISABLED'}`);
             
             if (!isWelcomeEnabled) return;
 
             for (const jid of participants) {
                 if (action === 'add') {
                     const customMsg = Settings.get(`welcomemsg_${id}`, '👋 Selamat datang @user di grup!\n\nKetik *.menu* untuk melihat fitur bot.');
+                    console.log(`👥 [Welcome System] Sending welcome message to ${jid} in ${id}`);
                     await sock.sendMessage(id, {
-                        text: customMsg.replace('@user', `@${jid.split('@')[0]}`),
+                        text: customMsg.replace(/@user/g, `@${jid.split('@')[0]}`),
                         mentions: [jid]
                     });
                 } else if (action === 'remove') {
                     const customMsg = Settings.get(`goodbyemsg_${id}`, '👋 Selamat tinggal @user!');
+                    console.log(`👥 [Welcome System] Sending goodbye message to ${jid} in ${id}`);
                     await sock.sendMessage(id, {
-                        text: customMsg.replace('@user', `@${jid.split('@')[0]}`),
+                        text: customMsg.replace(/@user/g, `@${jid.split('@')[0]}`),
                         mentions: [jid]
                     });
                 }

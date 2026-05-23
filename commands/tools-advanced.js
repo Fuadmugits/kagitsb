@@ -14,9 +14,10 @@ async function processAudio(sock, m, effectName, ffmpegFilter) {
         const outputPath = path.join(config.paths.temp, `output_${Date.now()}.mp3`);
         fs.writeFileSync(inputPath, buffer);
 
+        const ffmpegPath = require('ffmpeg-static');
         const { exec } = require('child_process');
         await new Promise((resolve, reject) => {
-            exec(`ffmpeg -i "${inputPath}" ${ffmpegFilter} "${outputPath}" -y`, (err) => {
+            exec(`"${ffmpegPath}" -i "${inputPath}" ${ffmpegFilter} "${outputPath}" -y`, (err) => {
                 if (err) reject(err); else resolve();
             });
         });
@@ -178,8 +179,9 @@ module.exports = [
                 const inputPath = path.join(config.paths.temp, `vin_${Date.now()}.mp4`);
                 const outputPath = path.join(config.paths.temp, `aout_${Date.now()}.mp3`);
                 fs.writeFileSync(inputPath, buffer);
+                const ffmpegPath = require('ffmpeg-static');
                 const { exec } = require('child_process');
-                await new Promise((res, rej) => { exec(`ffmpeg -i "${inputPath}" -vn -ar 44100 -ac 2 -b:a 192k "${outputPath}" -y`, (e) => e ? rej(e) : res()); });
+                await new Promise((res, rej) => { exec(`"${ffmpegPath}" -i "${inputPath}" -vn -ar 44100 -ac 2 -b:a 192k "${outputPath}" -y`, (e) => e ? rej(e) : res()); });
                 if (fs.existsSync(outputPath)) {
                     const out = fs.readFileSync(outputPath);
                     await sock.sendMessage(m.chat, { audio: out, mimetype: 'audio/mpeg' }, { quoted: m.raw });
@@ -287,9 +289,10 @@ module.exports = [
                     
                     fs.writeFileSync(inputPath, buffer);
                     
+                    const ffmpegPath = require('ffmpeg-static');
                     const { exec } = require('child_process');
                     await new Promise((resolve, reject) => {
-                        exec(`ffmpeg -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0" -c:v libx264 -preset fast -crf 20 -c:a aac -b:a 128k "${outputPath}" -y`, (err) => {
+                        exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0" -c:v libx264 -preset fast -crf 20 -c:a aac -b:a 128k "${outputPath}" -y`, (err) => {
                             if (err) reject(err); else resolve();
                         });
                     });
