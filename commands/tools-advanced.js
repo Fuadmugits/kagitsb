@@ -39,6 +39,82 @@ async function processAudio(sock, m, effectName, ffmpegFilter) {
     }
 }
 
+async function generateQuote(sock, m, text, isImage = false) {
+    if (!text && !m.quoted?.text && !isImage) return m.reply('❌ Masukkan teks atau reply pesan!');
+    
+    let mediaBuffer = null;
+    let mimeType = 'image/jpeg';
+    if (isImage) {
+        if (!m.quoted?.isImage && !m.isImage) return m.reply('❌ Reply gambar untuk iqc!');
+        try {
+            mediaBuffer = await (m.quoted?.isImage ? m.quoted : m).download();
+            mimeType = (m.quoted?.isImage ? m.quoted : m).mimetype || 'image/jpeg';
+        } catch (e) {
+            return m.reply('❌ Gagal mendownload gambar!');
+        }
+    }
+
+    const msgText = text || (m.quoted?.text ? m.quoted.text : '');
+    const target = m.quoted ? m.quoted.sender : m.sender;
+    const targetName = m.quoted ? (m.quoted.pushName || 'User') : (m.pushName || 'User');
+    
+    try {
+        await m.react('⏳');
+        let avatarUrl = 'https://i.ibb.co/0Jwqm2p/profile.png';
+        try {
+            const url = await sock.profilePictureUrl(target, 'image');
+            if (url) avatarUrl = url;
+        } catch {}
+
+        const payload = {
+            type: "quote",
+            format: "png",
+            backgroundColor: "#1b1429",
+            width: 512,
+            height: 768,
+            scale: 2,
+            messages: [{
+                entities: [],
+                avatar: true,
+                from: {
+                    id: 1,
+                    name: targetName,
+                    photo: { url: avatarUrl }
+                },
+                text: msgText,
+                replyMessage: {}
+            }]
+        };
+
+        if (mediaBuffer) {
+            payload.messages[0].media = {
+                url: `data:${mimeType};base64,${mediaBuffer.toString('base64')}`
+            };
+        }
+
+        const res = await fetch('https://bot.lyo.su/quote/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+        });
+        
+        if (!res.ok) throw new Error(`API Error ${res.status}`);
+        const json = await res.json();
+        
+        if (json.ok && json.result && json.result.image) {
+            let buffer = Buffer.from(json.result.image, 'base64');
+            buffer = await toWebp(buffer);
+            await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m.raw });
+            await m.react('✅');
+        } else {
+            await m.reply('❌ Gagal generate QC.');
+        }
+    } catch (e) {
+        await m.reply('❌ Error: ' + e.message);
+    }
+}
+
 module.exports = [
     // ═══ AUDIO EFFECTS ═══
     {
@@ -173,25 +249,71 @@ module.exports = [
 
     // ═══ IMAGE TOOLS ═══
     {
-        name: 'hd', category: 'tools', desc: 'Upscale gambar jadi HD', usage: '(reply img)',
+        name: 'hd', category: 'tools', desc: 'Upscale gambar/video jadi HD', usage: '(reply img/video)',
         premiumOnly: true,
         async execute({ sock, m }) {
-            if (!m.quoted?.isImage && !m.isImage) return m.reply('❌ Reply gambar!');
-            try {
-                await m.react('⏳');
-                const buffer = await (m.quoted?.isImage ? m.quoted : m).download();
-                const sharp = require('sharp');
-                const meta = await sharp(buffer).metadata();
-                const upscaled = await sharp(buffer)
-                    .resize(meta.width * 2, meta.height * 2, { kernel: 'lanczos3' })
-                    .sharpen()
-                    .toBuffer();
-                await sock.sendMessage(m.chat, {
-                    image: upscaled,
-                    caption: `✅ *HD Upscale*\n📐 ${meta.width}x${meta.height} → ${meta.width * 2}x${meta.height * 2}`
-                }, { quoted: m.raw });
-                await m.react('✅');
-            } catch (e) { await m.reply('❌ Error: ' + e.message); }
+            const isImg = m.quoted?.isImage || m.isImage;
+            const isVid = m.quoted?.isVideo || m.isVideo;
+            if (!isImg && !isVid) return m.reply('❌ Reply gambar atau video!');
+
+            if (isImg) {
+                try {
+                    await m.react('⏳');
+                    const buffer = await (m.quoted?.isImage ? m.quoted : m).download();
+                    const sharp = require('sharp');
+                    const meta = await sharp(buffer).metadata();
+                    const upscaled = await sharp(buffer)
+                        .resize(meta.width * 2, meta.height * 2, { kernel: 'lanczos3' })
+                        .sharpen()
+                        .toBuffer();
+                    await sock.sendMessage(m.chat, {
+                        image: upscaled,
+                        caption: `✅ *HD Upscale*\n📐 ${meta.width}x${meta.height} → ${meta.width * 2}x${meta.height * 2}`
+                    }, { quoted: m.raw });
+                    await m.react('✅');
+                } catch (e) { await m.reply('❌ Error: ' + e.message); }
+            } else if (isVid) {
+                try {
+                    await m.react('⏳');
+                    const media = m.quoted?.isVideo ? m.quoted : m;
+                    const buffer = await media.download();
+                    
+                    if (!fs.existsSync(config.paths.temp)) {
+                        fs.mkdirSync(config.paths.temp, { recursive: true });
+                    }
+                    
+                    const inputPath = path.join(config.paths.temp, `vid_in_${Date.now()}.mp4`);
+                    const outputPath = path.join(config.paths.temp, `vid_out_${Date.now()}.mp4`);
+                    
+                    fs.writeFileSync(inputPath, buffer);
+                    
+                    const { exec } = require('child_process');
+                    await new Promise((resolve, reject) => {
+                        exec(`ffmpeg -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0" -c:v libx264 -preset fast -crf 20 -c:a aac -b:a 128k "${outputPath}" -y`, (err) => {
+                            if (err) reject(err); else resolve();
+                        });
+                    });
+                    
+                    if (fs.existsSync(outputPath)) {
+                        const outBuffer = fs.readFileSync(outputPath);
+                        await sock.sendMessage(m.chat, {
+                            video: outBuffer,
+                            caption: `✅ *HD Video Upscale*\n📐 Kualitas video berhasil ditingkatkan ke HD`
+                        }, { quoted: m.raw });
+                        
+                        // Cleanup
+                        try {
+                            fs.unlinkSync(inputPath);
+                            fs.unlinkSync(outputPath);
+                        } catch {}
+                        await m.react('✅');
+                    } else {
+                        await m.reply('❌ Gagal memproses video ke HD.');
+                    }
+                } catch (e) {
+                    await m.reply(`❌ Error: ${e.message}\n\n💡 Pastikan FFmpeg sudah terinstall di sistem.`);
+                }
+            }
         }
     },
     {
@@ -205,14 +327,43 @@ module.exports = [
         }
     },
     {
-        name: 'smeme', category: 'tools', desc: 'Buat sticker meme', usage: '(reply img)',
+        name: 'smeme', category: 'tools', desc: 'Buat sticker/gambar meme', usage: '<top|bottom> (reply img/sticker)',
         async execute({ sock, m, text }) {
-            if (!m.quoted?.isImage && !m.isImage) return m.reply('❌ Reply gambar!');
+            const isImg = m.quoted?.isImage || m.isImage;
+            const isStik = m.quoted?.isSticker;
+            if (!isImg && !isStik) return m.reply('❌ Reply gambar atau sticker!');
+            if (!text) return m.reply('❌ Masukkan teks meme!\nContoh: .smeme atas|bawah');
+            
             try {
-                let buffer = await (m.quoted?.isImage ? m.quoted : m).download();
-                buffer = await toWebp(buffer);
-                await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m.raw });
-            } catch (e) { await m.reply('❌ Error: ' + e.message); }
+                await m.react('⏳');
+                const buffer = await (m.quoted ? m.quoted : m).download();
+                
+                // Upload to get public URL
+                const FormData = require('form-data');
+                const axios = require('axios');
+                const form = new FormData();
+                form.append('file', buffer, { filename: 'file.bin' });
+                const uploadRes = await axios.post('https://tmpfiles.org/api/v1/upload', form, { headers: form.getHeaders() });
+                const mediaUrl = uploadRes.data?.data?.url?.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+                if (!mediaUrl) return m.reply('❌ Gagal mengunggah media ke server sementara.');
+                
+                const [top, bottom] = text.split('|').map(t => t.trim());
+                const topText = top || '';
+                const bottomText = bottom || '';
+                
+                const apiUrl = `https://api.siputzx.my.id/api/m/smeme?url=${encodeURIComponent(mediaUrl)}&text=${encodeURIComponent(topText)}&text2=${encodeURIComponent(bottomText)}`;
+                
+                let resultBuffer = await fetchBuffer(apiUrl);
+                if (resultBuffer) {
+                    let stickerBuffer = await toWebp(resultBuffer);
+                    await sock.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m.raw });
+                    await m.react('✅');
+                } else {
+                    await m.reply('❌ Gagal menghasilkan meme.');
+                }
+            } catch (e) {
+                await m.reply('❌ Error: ' + e.message);
+            }
         }
     },
     {
@@ -262,15 +413,13 @@ module.exports = [
     {
         name: 'qc', category: 'tools', desc: 'Buat quote card', usage: '(pesannya)',
         async execute({ sock, m, text }) {
-            if (!text) return m.reply('❌ Masukkan teks!');
-            try {
-                let buffer = await fetchBuffer(`https://api.siputzx.my.id/api/m/qc?text=${encodeURIComponent(text)}&name=${encodeURIComponent(m.pushName)}`);
-                if (buffer) {
-                    buffer = await toWebp(buffer);
-                    await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m.raw });
-                }
-                else await m.reply('❌ Gagal generate QC.');
-            } catch { await m.reply('❌ Error.'); }
+            await generateQuote(sock, m, text, false);
+        }
+    },
+    {
+        name: 'iqc', category: 'tools', desc: 'Buat image quote card', usage: '(reply gambar)',
+        async execute({ sock, m, text }) {
+            await generateQuote(sock, m, text, true);
         }
     },
     {

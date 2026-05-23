@@ -108,14 +108,14 @@ module.exports = [
             const userLuck = stats.luck || 0;
 
             // Base chances
-            let superJackpotChance = 0.005; // 0.5%
-            let jackpotChance = 0.015; // 1.5%
-            let winChance = 0.25; // 25%
+            let superJackpotChance = 0.0005; // Nerfed 10x (0.05%)
+            let jackpotChance = 0.0015; // Nerfed 10x (0.15%)
+            let winChance = 0.15; // Nerfed (15%)
 
-            // Luck bonus scaling
-            const superBonus = Math.min(0.05, userLuck * 0.000005);
-            const jackBonus = Math.min(0.1, userLuck * 0.00001);
-            const winBonus = Math.min(0.2, userLuck * 0.00002);
+            // Luck bonus scaling (Nerfed 10x to prevent luck exploit)
+            const superBonus = Math.min(0.005, userLuck * 0.0000005);
+            const jackBonus = Math.min(0.01, userLuck * 0.000001);
+            const winBonus = Math.min(0.03, userLuck * 0.000002);
 
             superJackpotChance += superBonus;
             jackpotChance += jackBonus;

@@ -569,7 +569,7 @@ module.exports = [
             
             if (userRpg.hp >= maxHp) return m.reply('❤️ HP kamu sudah penuh!');
             
-            const cost = 25000;
+            const cost = 250000;
             if (u.balance < cost) return m.reply(`❌ Balance tidak cukup untuk biaya pengobatan!\n💰 Butuh: Rp ${formatNumber(cost)}`);
             
             Users.addBalance(m.sender, -cost);
@@ -596,7 +596,7 @@ module.exports = [
             
             if (itemsToRepair.length === 0) return m.reply('✅ Semua equipment kamu masih dalam kondisi prima!');
             
-            const costPerItem = 50000;
+            const costPerItem = 250000;
             const totalCost = itemsToRepair.length * costPerItem;
             const coins = RPG.getCoin(m.sender);
             
@@ -853,9 +853,9 @@ module.exports = [
             let userRpg = RPG.getUser(m.sender);
             
             const getCost = (s, val) => {
-                if (s === 'power') return 250000 + (val * val * 500);
-                if (s === 'luck') return 500000 + (val * val * 1000);
-                if (s === 'defense') return 150000 + (val * val * 300);
+                if (s === 'power') return 1250000 + (val * val * 2500);
+                if (s === 'luck') return 2500000 + (val * val * 5000);
+                if (s === 'defense') return 750000 + (val * val * 1500);
                 return 0;
             };
 
@@ -927,12 +927,12 @@ module.exports = [
         }
     },
     {
-        name: 'buyrpgcoin', aliases: ['buycoinrpg', 'beli-rpgcoin', 'beli-coinrpg'], category: 'rpg', desc: 'Beli Koin RPG dengan Balance (1 Koin = 1.000.000 Balance)', usage: '<jumlah>',
+        name: 'buyrpgcoin', aliases: ['buycoinrpg', 'beli-rpgcoin', 'beli-coinrpg'], category: 'rpg', desc: 'Beli Koin RPG dengan Balance (1 Koin = 10.000.000 Balance)', usage: '<jumlah>',
         async execute({ sock, m, args }) {
             const amount = parseInt(args[0]);
             if (isNaN(amount) || amount < 1) return m.reply('❌ Masukkan jumlah koin RPG yang ingin dibeli.\nContoh: .buyrpgcoin 5');
             
-            const cost = amount * 1000000;
+            const cost = amount * 10000000;
             const user = Users.getOrCreate(m.sender);
             if (user.balance < cost) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
             

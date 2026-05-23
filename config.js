@@ -28,9 +28,9 @@ module.exports = {
         premium_30d: 25000,
         premium_7d: 5000,
         premium_14d: 10000,
-        limit_10: 50000,
-        limit_50: 200000,
-        limit_100: 350000,
+        limit_10: 250000,
+        limit_50: 1000000,
+        limit_100: 1750000,
     },
     // Global game schedule (24-hour format HH:mm)
     gameSchedule: (() => {
