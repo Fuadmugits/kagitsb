@@ -294,7 +294,7 @@ module.exports = [
                     let success = false;
                     try {
                         await new Promise((resolve, reject) => {
-                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0" -c:v libx264 -preset fast -crf 20 -c:a aac -b:a 128k "${outputPath}" -y`, (err) => {
+                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=bicubic,unsharp=3:3:0.5:3:3:0.0" -c:v libx264 -preset ultrafast -crf 24 -c:a aac -b:a 128k "${outputPath}" -y`, (err) => {
                                 if (err) reject(err); else resolve();
                             });
                         });
@@ -302,7 +302,7 @@ module.exports = [
                     } catch (err) {
                         // Fallback: try without audio in case the video is silent/has no audio stream
                         await new Promise((resolve, reject) => {
-                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0" -c:v libx264 -preset fast -crf 20 -an "${outputPath}" -y`, (err) => {
+                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=bicubic,unsharp=3:3:0.5:3:3:0.0" -c:v libx264 -preset ultrafast -crf 24 -an "${outputPath}" -y`, (err) => {
                                 if (err) reject(err); else resolve();
                             });
                         });
