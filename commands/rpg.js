@@ -181,7 +181,7 @@ module.exports = [
             const monster = MONSTERS[monsterName];
             const stats = calculateTotalStats(m.sender, m.chat);
             
-            // Check cooldown (3.5 minutes)
+            // Cooldown check
             const userRpg = RPG.getUser(m.sender);
             if (userRpg.last_attack) {
                 const last = new Date(userRpg.last_attack).getTime();
@@ -193,11 +193,22 @@ module.exports = [
             
             RPG.updateCooldown(m.sender, 'attack');
             
-            if (stats.power < monster.powerReq) {
-                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(stats.power)}\n🐉 Power Monster: ${formatNumber(monster.powerReq)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
+            // Skill system integration
+            const skills = RPG.getSkills(m.sender);
+            const critLvl = skills.crit || 0;
+            const greedLvl = skills.greed || 0;
+            
+            const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
+            const effectivePower = isCrit ? Math.floor(stats.power * 1.5) : stats.power;
+            
+            if (effectivePower < monster.powerReq) {
+                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(effectivePower)} ${isCrit ? '(Skill Critical Aktif! 🔥)' : ''}\n🐉 Power Monster: ${formatNumber(monster.powerReq)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
             }
+            
             // Victory
-            let reply = `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
+            let reply = isCrit 
+                ? `🔥 *CRITICAL STRIKE!!!* ⚔️\nDengan kekuatan luar biasa, kamu berhasil menaklukkan *${monster.name}*!\n\n` 
+                : `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
             
             // Check drops with luck factor
             const dropChance = monster.dropChance * (1 + (stats.luck / 200)); // Every 200 luck doubles drop chance
@@ -214,17 +225,26 @@ module.exports = [
                     reply += `   🗡️ Power: +${formatNumber(item.stats.power)}\n`;
                     reply += `   🛡️ Def: +${formatNumber(item.stats.defense)}\n`;
                     reply += `   🍀 Luck: +${formatNumber(item.stats.luck)}\n`;
-                    reply += `\n_Ini bukan drop status permanen! Ini adalah status dari item/armor yang baru kamu dapat. Ketik .inv untuk melihat tas dan .equip untuk memakai item ini._`;
+                    reply += `\n_Ini bukan drop status permanen! Ini adalah status dari item/armor yang baru kamu dapat. Ketik .inv untuk melihat tas dan .equip untuk memakai item ini._\n\n`;
                 }
             } else {
-                reply += `😔 Sayang sekali, monster tidak menjatuhkan item apa-apa.`;
+                reply += `😔 Sayang sekali, monster tidak menjatuhkan item apa-apa.\n\n`;
             }
             
+            // Exp and Coins calculation
             let expGained = 0;
             let koinGained = 0;
-            if (monster.class === 'lemah') expGained = randomInt(5, 20);
-            else if (monster.class === 'kuat') expGained = randomInt(50, 150);
-            else expGained = randomInt(500, 2000);
+            
+            if (monster.class === 'lemah') {
+                expGained = randomInt(5, 20);
+                koinGained = randomInt(5, 15);
+            } else if (monster.class === 'kuat') {
+                expGained = randomInt(50, 150);
+                koinGained = randomInt(30, 80);
+            } else {
+                expGained = randomInt(500, 2000);
+                koinGained = randomInt(150, 400);
+            }
             
             // Apply title exp multiplier
             if (stats.expMult && stats.expMult > 1.0) {
@@ -237,15 +257,42 @@ module.exports = [
             
             if (multiplier > 1) {
                 expGained *= multiplier;
-                koinGained = randomInt(5, 20) * multiplier; 
+                koinGained *= multiplier;
             }
             
-            if (koinGained > 0) RPG.addCoin(m.sender, koinGained);
-            const expResult = Users.addExp(m.sender, expGained);
-            reply += `\n✨ +${formatNumber(expGained)} EXP`;
-            if (koinGained > 0) reply += `\n🪙 +${formatNumber(Math.round(koinGained))} Koin (Admin Abuse x${multiplier} Bonus)`;
+            let skillMsgs = [];
+            
+            // Greed skill bonus (+2% coins per level)
+            if (greedLvl > 0) {
+                koinGained = Math.floor(koinGained * (1 + greedLvl * 0.02));
+                skillMsgs.push(`🪙 *Bonus Skill Greed Aktif (+${greedLvl * 2}% Koin)*`);
+            }
+            
+            // Critical Strike double gains
+            if (isCrit) {
+                expGained *= 2;
+                koinGained *= 2;
+                skillMsgs.push(`🔥 *Bonus Critical Strike: +100% EXP & Koin!*`);
+            }
+            
+            RPG.addCoin(m.sender, koinGained);
+            const expResult = RPG.addExp(m.sender, expGained);
+            
+            reply += `✨ +${formatNumber(expGained)} RPG EXP`;
+            reply += `\n🪙 +${formatNumber(koinGained)} Koin RPG`;
+            if (multiplier > 1) {
+                reply += ` _(Admin Abuse x${multiplier} Buff)_`;
+            }
+            
+            if (skillMsgs.length > 0) {
+                reply += `\n\n${skillMsgs.join('\n')}`;
+            }
+            
             if (expResult.leveledUp) {
-                reply += `\n🌟 *LEVEL UP!* Kamu naik ke Level ${expResult.newLevel}! 🌟`;
+                reply += `\n\n🌟 *RPG LEVEL UP!* Kamu naik ke RPG Level ${expResult.newLevel}! 🌟`;
+                if (expResult.newSkill) {
+                    reply += `\n🎁 *UNIQUE SKILL UNLOCKED:* [${expResult.newSkill}]`;
+                }
             }
             
             // Decrease Durability
@@ -492,42 +539,42 @@ module.exports = [
             const valid = ['power', 'defense', 'luck'];
             if (!valid.includes(stat)) return m.reply('❌ Pilih stat yang ingin di-upgrade: power, defense, atau luck!\nContoh: .upgrade power atau .upgrade power all');
             
-            const user = Users.getOrCreate(m.sender);
             const userRpg = RPG.getUser(m.sender);
             const currentLevel = userRpg['base_' + stat] || 0;
             const isAll = args[1]?.toLowerCase() === 'all';
             
-            const getCost = (lvl) => (lvl + 1) * 1000;
+            const getCost = (lvl) => (lvl + 1) * 2; // Biaya dalam Koin RPG
+            const userCoins = RPG.getCoin(m.sender);
             
             if (isAll) {
                 let totalCost = 0;
                 let levelsUp = 0;
                 let tempLevel = currentLevel;
-                let currentBalance = user.balance;
+                let currentCoins = userCoins;
                 
-                while (currentBalance >= getCost(tempLevel)) {
+                while (currentCoins >= getCost(tempLevel)) {
                     const cost = getCost(tempLevel);
                     totalCost += cost;
-                    currentBalance -= cost;
+                    currentCoins -= cost;
                     tempLevel++;
                     levelsUp++;
                     if (levelsUp >= 100) break; // Safety cap
                 }
                 
-                if (levelsUp === 0) return m.reply(`❌ Balance tidak cukup untuk upgrade even 1 level!\n💰 Butuh: Rp ${formatNumber(getCost(currentLevel))}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+                if (levelsUp === 0) return m.reply(`❌ Koin RPG tidak cukup untuk upgrade bahkan 1 level!\n💰 Butuh: 🪙 ${formatNumber(getCost(currentLevel))} Koin\n🪙 Koinmu: 🪙 ${formatNumber(userCoins)}`);
                 
-                Users.addBalance(m.sender, -totalCost);
+                RPG.addCoin(m.sender, -totalCost);
                 RPG.addStat(m.sender, stat, levelsUp);
                 
-                await m.reply(`✅ *UPGRADE MASSAL BERHASIL!*\n\n📈 Stat: ${stat.toUpperCase()}\n🆙 Naik: +${levelsUp} Level\n💰 Total Biaya: Rp ${formatNumber(totalCost)}\n📊 Level Sekarang: ${tempLevel}\n💳 Sisa Saldo: Rp ${formatNumber(currentBalance)}`);
+                await m.reply(`✅ *UPGRADE MASSAL BERHASIL!*\n\n📈 Stat: ${stat.toUpperCase()}\n🆙 Naik: +${levelsUp} Level\n💰 Total Biaya: 🪙 ${formatNumber(totalCost)} Koin\n📊 Level Sekarang: ${tempLevel}\n🪙 Sisa Koin: 🪙 ${formatNumber(currentCoins)}`);
             } else {
                 const cost = getCost(currentLevel);
-                if (user.balance < cost) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+                if (userCoins < cost) return m.reply(`❌ Koin RPG tidak cukup!\n💰 Butuh: 🪙 ${formatNumber(cost)} Koin\n🪙 Koinmu: 🪙 ${formatNumber(userCoins)}`);
                 
-                Users.addBalance(m.sender, -cost);
+                RPG.addCoin(m.sender, -cost);
                 RPG.addStat(m.sender, stat, 1);
                 
-                await m.reply(`✅ *UPGRADE BERHASIL!*\n\n📈 Stat: ${stat.toUpperCase()}\n🆙 Level: ${currentLevel} -> ${currentLevel + 1}\n💰 Biaya: Rp ${formatNumber(cost)}\n💳 Sisa Saldo: Rp ${formatNumber(user.balance - cost)}`);
+                await m.reply(`✅ *UPGRADE BERHASIL!*\n\n📈 Stat: ${stat.toUpperCase()}\n🆙 Level: ${currentLevel} -> ${currentLevel + 1}\n💰 Biaya: 🪙 ${formatNumber(cost)} Koin\n🪙 Sisa Koin: 🪙 ${formatNumber(userCoins - cost)}`);
             }
         }
     },
@@ -569,13 +616,14 @@ module.exports = [
             
             if (userRpg.hp >= maxHp) return m.reply('❤️ HP kamu sudah penuh!');
             
-            const cost = 250000;
-            if (u.balance < cost) return m.reply(`❌ Balance tidak cukup untuk biaya pengobatan!\n💰 Butuh: Rp ${formatNumber(cost)}`);
+            const cost = 10; // Biaya Koin RPG
+            const coins = RPG.getCoin(m.sender);
+            if (coins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk biaya pengobatan!\n💰 Butuh: 🪙 ${formatNumber(cost)} Koin\n🪙 Koinmu: 🪙 ${formatNumber(coins)}`);
             
-            Users.addBalance(m.sender, -cost);
+            RPG.addCoin(m.sender, -cost);
             RPG.setHp(m.sender, maxHp);
             
-            await m.reply(`💖 *PENGOBATAN BERHASIL!* 💖\n\nHP kamu kini kembali penuh (*${maxHp}*).\n💸 Biaya: Rp ${formatNumber(cost)}\n\n_Ayo kembali ke arena pertarungan!_`);
+            await m.reply(`💖 *PENGOBATAN BERHASIL!* 💖\n\nHP kamu kini kembali penuh (*${maxHp}*).\n💸 Biaya: 🪙 ${formatNumber(cost)} Koin\n\n_Ayo kembali ke arena pertarungan!_`);
         }
     },
     {
@@ -729,11 +777,35 @@ module.exports = [
                 reward *= multiplier;
             }
             
-            const balReward = reward * 1000; // balance reward
+            // Skill system integration
+            const skills = RPG.getSkills(m.sender);
+            const doubleMineLvl = skills.doublemine || 0;
+            const greedLvl = skills.greed || 0;
+            
+            let skillMsgs = [];
+            
+            // Greed skill bonus (+2% coins per level)
+            if (greedLvl > 0) {
+                reward = Math.floor(reward * (1 + greedLvl * 0.02));
+                skillMsgs.push(`🪙 *Bonus Skill Greed Aktif (+${greedLvl * 2}% Koin)*`);
+            }
+            
+            // Double Mine skill check
+            let doubleMineTriggered = false;
+            if (doubleMineLvl > 0 && Math.random() < (doubleMineLvl / 100)) {
+                reward *= 2;
+                doubleMineTriggered = true;
+                skillMsgs.push(`✨ *Skill Double Mine Aktif (Mendapatkan Hasil 2x Lipat! ⛏️)*`);
+            }
             
             RPG.addCoin(m.sender, reward);
-            Users.addBalance(m.sender, balReward);
-            await m.reply(`⛏️ Kamu menambang dan mendapatkan *${material}*!\n💰 Koin RPG bertambah: 🪙 ${formatNumber(reward)}\n💵 Balance bertambah: Rp ${formatNumber(balReward)}`);
+            
+            let replyText = `⛏️ Kamu menambang dan mendapatkan *${material}${doubleMineTriggered ? ' x2' : ''}*!\n💰 Koin RPG bertambah: 🪙 ${formatNumber(reward)}`;
+            if (skillMsgs.length > 0) {
+                replyText += `\n\n${skillMsgs.join('\n')}`;
+            }
+            
+            await m.reply(replyText);
         }
     },
     {
@@ -849,13 +921,12 @@ module.exports = [
             if (!valid.includes(stat)) return m.reply('❌ Pilih stat yang ingin di-upgrade: power, defense, atau luck.\nContoh: .upgrade power');
             
             const isAll = args[1]?.toLowerCase() === 'all';
-            let user = Users.getOrCreate(m.sender);
             let userRpg = RPG.getUser(m.sender);
             
             const getCost = (s, val) => {
-                if (s === 'power') return 1250000 + (val * val * 2500);
-                if (s === 'luck') return 2500000 + (val * val * 5000);
-                if (s === 'defense') return 750000 + (val * val * 1500);
+                if (s === 'power') return 25 + Math.floor(val * val * 0.05);
+                if (s === 'luck') return 50 + Math.floor(val * val * 0.1);
+                if (s === 'defense') return 15 + Math.floor(val * val * 0.03);
                 return 0;
             };
 
@@ -863,7 +934,8 @@ module.exports = [
             let totalCost = 0;
             let levelsBought = 0;
             let tempStat = userRpg[`base_${stat}`] || (stat === 'luck' ? 0 : 10);
-            let tempBalance = user.balance;
+            let userCoins = RPG.getCoin(m.sender);
+            let tempCoins = userCoins;
 
             const argCount = parseInt(args[1]);
             const isSpecific = !isNaN(argCount) && argCount > 0;
@@ -871,8 +943,8 @@ module.exports = [
             if (isAll) {
                 while (true) {
                     let nextCost = getCost(stat, tempStat);
-                    if (tempBalance >= nextCost) {
-                        tempBalance -= nextCost;
+                    if (tempCoins >= nextCost) {
+                        tempCoins -= nextCost;
                         totalCost += nextCost;
                         tempStat += incPerLevel;
                         levelsBought++;
@@ -880,12 +952,12 @@ module.exports = [
                         break;
                     }
                 }
-                if (levelsBought === 0) return m.reply(`❌ Balance tidak cukup untuk upgrade bahkan 1 level!\n💰 Butuh: Rp ${formatNumber(getCost(stat, tempStat))}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+                if (levelsBought === 0) return m.reply(`❌ Koin RPG tidak cukup untuk upgrade bahkan 1 level!\n💰 Butuh: 🪙 ${formatNumber(getCost(stat, tempStat))}\n🪙 Koinmu: 🪙 ${formatNumber(userCoins)}`);
             } else if (isSpecific) {
                 for (let i = 0; i < argCount; i++) {
                     let nextCost = getCost(stat, tempStat);
-                    if (tempBalance >= nextCost) {
-                        tempBalance -= nextCost;
+                    if (tempCoins >= nextCost) {
+                        tempCoins -= nextCost;
                         totalCost += nextCost;
                         tempStat += incPerLevel;
                         levelsBought++;
@@ -893,17 +965,17 @@ module.exports = [
                         break;
                     }
                 }
-                if (levelsBought < argCount) return m.reply(`❌ Balance tidak cukup untuk upgrade *${argCount}* level!\n💰 Hanya mampu: ${levelsBought} level.\n💵 Sisa saldo: Rp ${formatNumber(tempBalance)}`);
+                if (levelsBought < argCount) return m.reply(`❌ Koin RPG tidak cukup untuk upgrade *${argCount}* level!\n💰 Hanya mampu: ${levelsBought} level.\n🪙 Sisa Koin: 🪙 ${formatNumber(tempCoins)}`);
             } else {
                 totalCost = getCost(stat, tempStat);
-                if (tempBalance < totalCost) return m.reply(`❌ Balance kurang!\n💰 Butuh: Rp ${formatNumber(totalCost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
+                if (tempCoins < totalCost) return m.reply(`❌ Koin RPG kurang!\n💰 Butuh: 🪙 ${formatNumber(totalCost)}\n🪙 Koinmu: 🪙 ${formatNumber(userCoins)}`);
                 levelsBought = 1;
             }
 
-            Users.addBalance(m.sender, -totalCost);
+            RPG.addCoin(m.sender, -totalCost);
             RPG.addStat(m.sender, stat, incPerLevel * levelsBought);
             
-            await m.reply(`✅ *UPGRADE BERHASIL*\n\n📈 Base ${stat.toUpperCase()} meningkat (+${incPerLevel * levelsBought}) [${levelsBought}x Upgrade]!\n💸 Total Biaya: Rp ${formatNumber(totalCost)}\n💳 Sisa Saldo: Rp ${formatNumber(Users.get(m.sender).balance)}`);
+            await m.reply(`✅ *UPGRADE BERHASIL*\n\n📈 Base ${stat.toUpperCase()} meningkat (+${incPerLevel * levelsBought}) [${levelsBought}x Upgrade]!\n💰 Total Biaya: 🪙 ${formatNumber(totalCost)} Koin\n🪙 Sisa Koin: 🪙 ${formatNumber(RPG.getCoin(m.sender))}`);
         }
     },
     {
@@ -927,12 +999,12 @@ module.exports = [
         }
     },
     {
-        name: 'buyrpgcoin', aliases: ['buycoinrpg', 'beli-rpgcoin', 'beli-coinrpg'], category: 'rpg', desc: 'Beli Koin RPG dengan Balance (1 Koin = 10.000.000 Balance)', usage: '<jumlah>',
+        name: 'buyrpgcoin', aliases: ['buycoinrpg', 'beli-rpgcoin', 'beli-coinrpg'], category: 'rpg', desc: 'Beli Koin RPG dengan Balance (1 Koin = 100.000.000 Balance)', usage: '<jumlah>',
         async execute({ sock, m, args }) {
             const amount = parseInt(args[0]);
             if (isNaN(amount) || amount < 1) return m.reply('❌ Masukkan jumlah koin RPG yang ingin dibeli.\nContoh: .buyrpgcoin 5');
             
-            const cost = amount * 10000000;
+            const cost = amount * 100000000; // Raised 10x
             const user = Users.getOrCreate(m.sender);
             if (user.balance < cost) return m.reply(`❌ Balance tidak cukup!\n💰 Butuh: Rp ${formatNumber(cost)}\n💳 Saldo: Rp ${formatNumber(user.balance)}`);
             
@@ -1099,24 +1171,34 @@ module.exports = [
             if (!raid) return m.reply('❌ Tidak ada Boss Raid yang aktif di grup ini. Gunakan *.summonraid* untuk memanggil bos!');
             
             const stats = calculateTotalStats(m.sender, m.chat);
-            const userRpg = RPG.getUser(m.sender);
-            
-            // Cooldown 5 detik untuk raid agar tidak spamming terlalu cepat
-            if (userRpg.last_raid_attack) {
-                const last = parseInt(userRpg.last_raid_attack);
-                if (Date.now() - last < 5 * 1000) {
-                    const sisa = Math.ceil((5 * 1000 - (Date.now() - last)) / 1000);
-                    return m.reply(`⏳ Tunggu ${sisa} detik lagi untuk menyerang kembali!`);
-                }
-            }
             
             const { Settings } = require('../database');
             const abuseVal = Settings.get('adminabuse_' + m.chat);
             const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
 
             let damage = randomInt(Math.floor(stats.power * 0.8), Math.floor(stats.power * 1.2));
-            // Multiplier from Admin Abuse removed for Power/Defense as requested. 
-            // It only affects Luck/DropChance via calculateTotalStats.
+            
+            // Skill system integration
+            const skills = RPG.getSkills(m.sender);
+            const critLvl = skills.crit || 0;
+            const shieldLvl = skills.shield || 0;
+            
+            const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
+            if (isCrit) {
+                damage *= 2;
+            }
+            
+            const userRpg = RPG.getUser(m.sender);
+            let uniqueSkills = [];
+            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            
+            if (uniqueSkills.includes('Dragon Slayer')) {
+                damage = Math.floor(damage * 1.20);
+            }
+            if (uniqueSkills.includes('Vampiric')) {
+                const healAmt = Math.floor(damage * 0.05);
+                RPG.addHp(m.sender, healAmt);
+            }
             
             // Damage Cap: Scaling Shield Duration (+5 detik per level boss)
             const raidAge = Date.now() - raid.startTime;
@@ -1140,18 +1222,23 @@ module.exports = [
             let stunEffect = 0;
             
             if (Math.random() < 0.15) {
-                const skills = [
+                const bossSkillsList = [
                     { name: '🔥 CRITICAL STRIKE', effect: () => { bossDmg *= 2; } },
                     { name: '☣️ CORROSIVE CLAW', effect: () => { extraDurabilityLoss = 5; } },
                     { name: '💫 STUN BLAST', effect: () => { stunEffect = 15000; } } // Extra 15s cooldown
                 ];
-                const skill = pickRandom(skills);
-                skill.effect();
-                skillMsg = `\n⚠️ *BOSS SKILL:* ${skill.name}!`;
+                const selectedBossSkill = pickRandom(bossSkillsList);
+                selectedBossSkill.effect();
+                skillMsg = `\n⚠️ *BOSS SKILL:* ${selectedBossSkill.name}!`;
             }
 
             // Player defense reduces boss damage
             bossDmg = Math.max(5, bossDmg - Math.floor(stats.defense / 150)); 
+            
+            // Shield Aura skill bonus (reduces damage taken from boss)
+            if (shieldLvl > 0) {
+                bossDmg = Math.floor(bossDmg * (1 - shieldLvl * 0.01));
+            }
             
             RPG.addHp(m.sender, -bossDmg);
             const currentPlayerHp = (RPG.getUser(m.sender).hp || 0);
@@ -1166,8 +1253,7 @@ module.exports = [
             // Update cooldown di db (Unix Timestamp)
             const { run } = require('../database');
             const totalCooldown = (5 * 1000) + stunEffect;
-            const cooldownExpire = Date.now() + stunEffect; // Store current time (or future time if stun)
-            // We store the LAST ATTACK time, but if stunned, we add the stun duration to the "last attack" to simulate a delay
+            const cooldownExpire = Date.now() + stunEffect;
             try { run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [Date.now() + stunEffect, m.sender]); } catch {
                 try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [Date.now() + stunEffect, m.sender]); } catch {}
             }
@@ -1178,21 +1264,21 @@ module.exports = [
                 const topContributorJid = participants[0][0];
                 
                 for (const [jid, dmg] of participants) {
-                    const coinReward = Math.floor(dmg * 0.0005); // Nerfed from 0.001 to 0.0005
-                    const balReward = Math.floor(dmg * 5); // Nerfed from 10 to 5 balance per damage
-                    
+                    const coinReward = Math.floor(dmg * 0.0005);
+                    const expReward = Math.floor(dmg * 0.005);
                     RPG.addCoin(jid, coinReward);
-                    Users.addBalance(jid, balReward);
+                    const expResult = RPG.addExp(jid, expReward);
                     
-                    rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} | 💵 +Rp ${formatNumber(balReward)}`;
+                    rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} Koin RPG | ✨ +${formatNumber(expReward)} EXP`;
+                    if (expResult.leveledUp) {
+                        rewardMsg += `\n    🌟 *Naik Lvl ${expResult.newLevel}!*${expResult.newSkill ? ` 🎁 [${expResult.newSkill}]` : ''}`;
+                    }
                     
                     // --- BOSS AURA DROP SYSTEM ---
-                    // Aura ID mapped to Boss ID: T77 + bossId
-                    // (Boss ID 1 gets T78, Boss ID 123 gets T200)
                     const auraId = `T${77 + res.raid.id}`;
-                    const userRpg = RPG.getUser(jid);
+                    const targetUserRpg = RPG.getUser(jid);
                     let unlocked = [];
-                    try { unlocked = JSON.parse(userRpg.unlocked_auras || '[]'); } catch(e) {}
+                    try { unlocked = JSON.parse(targetUserRpg.unlocked_auras || '[]'); } catch(e) {}
 
                     if (!unlocked.includes(auraId)) {
                         const killCount = RPG.addBossKill(jid, res.raid.id);
@@ -1209,8 +1295,8 @@ module.exports = [
                     // -----------------------------
 
                     // Peluang drop item untuk semua peserta (Base 5% + Luck factor)
-                    const stats = calculateTotalStats(jid, m.chat);
-                    const raidDropChance = 0.05 * (1 + (stats.luck / 500)); // Every 500 luck doubles raid drop chance
+                    const participantStats = calculateTotalStats(jid, m.chat);
+                    const raidDropChance = 0.05 * (1 + (participantStats.luck / 500)); // Every 500 luck doubles raid drop chance
                     if (Math.random() < raidDropChance) {
                         const itemType = pickRandom(ITEM_TYPES);
                         const item = generateRaidItem(res.raid.id, itemType);
@@ -1234,12 +1320,13 @@ module.exports = [
                 await m.reply(rewardMsg, { mentions: Object.keys(res.raid.participants) });
             } else {
                 const label = multiplier > 1 ? ` (Admin Abuse x${multiplier}! 🔥)` : '';
+                const critLabel = isCrit ? ' 🔥 (CRITICAL STRIKE! ⚔️)' : '';
                 
                 // Decrease Durability on Raid Attack
                 const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
-                const userRpg = RPG.getUser(m.sender);
+                const currentUserRpg = RPG.getUser(m.sender);
                 for (const slot of slots) {
-                    if (userRpg[slot]) {
+                    if (currentUserRpg[slot]) {
                         try {
                             const item = JSON.parse(userRpg[slot]);
                             if (item.durability > 0) {
@@ -1410,6 +1497,108 @@ module.exports = [
             msg += `\n\n_Dapatkan item dari .attack atau .attackraid!_`;
             
             await m.reply(msg.trim());
+        }
+    },
+    {
+        name: 'skills', aliases: ['skill'], category: 'rpg', desc: 'Lihat dan upgrade skill RPG kamu', usage: '[upgrade <nama_skill>]',
+        async execute({ sock, m, args }) {
+            const { RPG } = require('../database');
+            const skills = RPG.getSkills(m.sender);
+            
+            const action = args[0]?.toLowerCase();
+            const skillName = args[1]?.toLowerCase();
+            
+            const skillInfo = {
+                doublemine: { name: 'Double Mine', max: 50, desc: 'Peluang mendapat 2x hasil tambang' },
+                crit: { name: 'Critical Strike', max: 50, desc: 'Peluang 2x damage saat attack/raid' },
+                shield: { name: 'Shield Aura', max: 50, desc: 'Mengurangi damage boss raid' },
+                greed: { name: 'Greed', max: 50, desc: 'Bonus Koin RPG saat menambang/bertarung' }
+            };
+            
+            if (action === 'upgrade' && skillName) {
+                if (!skillInfo[skillName]) return m.reply(`❌ Skill tidak ditemukan!\nPilih: ${Object.keys(skillInfo).join(', ')}`);
+                
+                const currentLevel = skills[skillName] || 0;
+                const info = skillInfo[skillName];
+                
+                if (currentLevel >= info.max) return m.reply(`❌ Skill *${info.name}* sudah mencapai Max Level (${info.max})!`);
+                
+                const cost = 100 * (currentLevel + 1); // Cost scales up
+                const userCoins = RPG.getCoin(m.sender);
+                
+                if (userCoins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk upgrade skill!\n💰 Butuh: 🪙 ${formatNumber(cost)}\n🪙 Koinmu: ${formatNumber(userCoins)}`);
+                
+                RPG.addCoin(m.sender, -cost);
+                skills[skillName] = currentLevel + 1;
+                RPG.saveSkills(m.sender, skills);
+                
+                return m.reply(`✅ *SKILL UPGRADE BERHASIL!*\n\n✨ Skill: ${info.name}\n🆙 Level: ${currentLevel} -> ${currentLevel + 1}\n💰 Biaya: 🪙 ${formatNumber(cost)} Koin RPG\n\n_Efek: +1% peluang/efek per level_`);
+            }
+            
+            const { formatNumber } = require('../lib/functions');
+            let text = `╭───「 🌟 *RPG SKILLS* 」\n│\n`;
+            for (const key in skillInfo) {
+                const lvl = skills[key] || 0;
+                const max = skillInfo[key].max;
+                text += `│ 🔹 *${skillInfo[key].name}* (Lv. ${lvl}/${max})\n`;
+                text += `│    └ _${skillInfo[key].desc} (+${lvl}%)_\n│\n`;
+            }
+            text += `╰──────────────\n\n_Ketik .skills upgrade <nama_skill> untuk menaikkan level._\n_Biaya: bertahap menggunakan Koin RPG._`;
+            
+            await m.reply(text);
+        }
+    },
+    {
+        name: 'equipbest', aliases: ['bestequip'], category: 'rpg', desc: 'Otomatis pakai equipment terbaik di inventory',
+        async execute({ sock, m }) {
+            const { RPG } = require('../database');
+            const items = RPG.getInventory(m.sender);
+            if (!items.length) return m.reply('🎒 Tas kamu kosong, tidak ada item untuk dipakai.');
+            
+            const userRpg = RPG.getUser(m.sender);
+            const slots = ['weapon', 'helmet', 'armor', 'glove', 'legging', 'shoe'];
+            
+            let bestItems = {};
+            let equippedCount = 0;
+            
+            items.forEach((row) => {
+                try {
+                    const item = JSON.parse(row.item_data);
+                    if (slots.includes(item.type)) {
+                        const score = (item.stats.power || 0) + (item.stats.defense || 0) + (item.stats.luck || 0);
+                        if (!bestItems[item.type] || score > bestItems[item.type].score) {
+                            bestItems[item.type] = { id: row.id, item: item, score: score, row: row };
+                        }
+                    }
+                } catch(e) {}
+            });
+            
+            for (const slot of slots) {
+                let currentEquip = null;
+                try {
+                    if (userRpg[slot]) currentEquip = JSON.parse(userRpg[slot]);
+                } catch(e) {}
+                
+                const currentScore = currentEquip ? (currentEquip.stats.power || 0) + (currentEquip.stats.defense || 0) + (currentEquip.stats.luck || 0) : -1;
+                
+                const bestInInv = bestItems[slot];
+                
+                if (bestInInv && bestInInv.score > currentScore) {
+                    RPG.updateEquip(m.sender, slot, JSON.stringify(bestInInv.item));
+                    RPG.removeInventory(bestInInv.id, 1);
+                    
+                    if (currentEquip) {
+                        RPG.addInventory(m.sender, slot, JSON.stringify(currentEquip), 1);
+                    }
+                    equippedCount++;
+                }
+            }
+            
+            if (equippedCount > 0) {
+                await m.reply(`✅ Berhasil otomatis memakai *${equippedCount}* equipment terbaik!\n\n_Ketik .inv untuk melihat equipment yang sedang dipakai._`);
+            } else {
+                await m.reply(`✅ Equipment yang sedang kamu pakai sudah yang terbaik!`);
+            }
         }
     }
 ];

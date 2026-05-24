@@ -115,13 +115,24 @@ module.exports = [
             text += `╰──────────────\n\n`;
             
             text += `╭───「 ⚔️ 𝚁𝙿𝙶 𝚂𝚃𝙰𝚃𝚂 」\n`;
-            text += `│ 📈 Level : ${user.level}\n`;
-            text += `│ ✨ EXP   : ${formatNumber(user.exp)}\n`;
-            text += `│ 🪙 Koin  : ${formatNumber(RPG.getCoin(m.sender))}\n`;
-            text += `│ 🗡️ Power : ${formatNumber(stats.power)}\n`;
-            text += `│ 🛡️ Def   : ${formatNumber(stats.defense)}\n`;
-            text += `│ 🍀 Luck  : ${formatNumber(stats.luck)}\n`;
+            text += `│ 📈 RPG Lvl : ${userRpg.rpg_level || 1}\n`;
+            text += `│ ✨ RPG EXP : ${formatNumber(userRpg.rpg_exp || 0)}\n`;
+            text += `│ 🎭 Role    : ${userRpg.rpg_role || 'Beginner'}\n`;
+            text += `│ 🪙 Koin    : ${formatNumber(RPG.getCoin(m.sender))}\n`;
+            text += `│ 🗡️ Power   : ${formatNumber(stats.power)}\n`;
+            text += `│ 🛡️ Def     : ${formatNumber(stats.defense)}\n`;
+            text += `│ 🍀 Luck    : ${formatNumber(stats.luck)}\n`;
             text += `╰──────────────\n\n`;
+            
+            let uniqueSkills = [];
+            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            if (uniqueSkills.length > 0) {
+                text += `╭───「 🌟 𝚄𝙽𝙸𝚀𝚄𝙴 𝚂𝙺𝙸𝙻𝙻𝚂 」\n`;
+                uniqueSkills.forEach(s => {
+                    text += `│ 🔹 ${s}\n`;
+                });
+                text += `╰──────────────\n\n`;
+            }
             
             text += `╭───「 🛡️ 𝙴𝚀𝚄𝙸𝙿𝙼𝙴𝙽𝚃 」\n`;
             for (const slot of ITEM_TYPES) {
@@ -139,6 +150,37 @@ module.exports = [
             }
             text += `╰──────────────`;
             await m.reply(text);
+        }
+    },
+    {
+        name: 'setrole', category: 'rpg', desc: 'Pilih role RPG (Warrior, Tank, Assassin, Mage)', usage: '<role>',
+        async execute({ m, args }) {
+            const role = args[0]?.toLowerCase();
+            const validRoles = ['warrior', 'tank', 'assassin', 'mage'];
+            
+            if (!role || !validRoles.includes(role)) {
+                return m.reply(`❌ Silakan pilih role yang tersedia:\n\n` +
+                `🗡️ *Warrior*: +20% Power, -10% Luck\n` +
+                `🛡️ *Tank*: +30% Defense, -10% Power\n` +
+                `🥷 *Assassin*: +30% Luck, +10% Power, -20% Defense\n` +
+                `🧙 *Mage*: +15% Power, +15% Luck, -20% Defense\n\n` +
+                `Contoh: .setrole warrior`);
+            }
+            
+            const userRpg = RPG.getUser(m.sender);
+            const currentRole = userRpg.rpg_role || 'Beginner';
+            
+            if (currentRole !== 'Beginner') {
+                const cost = 50000;
+                if (RPG.getCoin(m.sender) < cost) {
+                    return m.reply(`❌ Kamu sudah memiliki role *${currentRole}*.\nBiaya untuk ganti role adalah 🪙 ${formatNumber(cost)} Koin RPG.\nKoinmu tidak cukup!`);
+                }
+                RPG.addCoin(m.sender, -cost);
+            }
+            
+            const newRole = role.charAt(0).toUpperCase() + role.slice(1);
+            RPG.setRole(m.sender, newRole);
+            await m.reply(`✅ Berhasil menjadi *${newRole}*!\nStatistikmu telah disesuaikan dengan role baru.`);
         }
     },
     {

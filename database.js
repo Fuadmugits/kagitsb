@@ -156,7 +156,11 @@ async function initDatabase() {
         asc_defense INTEGER DEFAULT 0,
         asc_luck INTEGER DEFAULT 0,
         hp INTEGER DEFAULT 1000,
-        last_raid_attack TEXT
+        last_raid_attack TEXT,
+        rpg_level INTEGER DEFAULT 1,
+        rpg_exp INTEGER DEFAULT 0,
+        rpg_role TEXT DEFAULT 'Beginner',
+        unique_skills TEXT DEFAULT '[]'
     )`);
 
     try { db.run('ALTER TABLE rpg_users ADD COLUMN base_power INTEGER DEFAULT 10'); } catch {}
@@ -171,6 +175,11 @@ async function initDatabase() {
     try { db.run('ALTER TABLE rpg_users ADD COLUMN equipped_aura TEXT'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN unlocked_auras TEXT DEFAULT "[]"'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN boss_kills TEXT DEFAULT "{}"'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN skills TEXT DEFAULT "{}"'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_level INTEGER DEFAULT 1'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_exp INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_role TEXT DEFAULT "Beginner"'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN unique_skills TEXT DEFAULT "[]"'); } catch {}
 
     // Redeem Codes System
     db.run(`CREATE TABLE IF NOT EXISTS gift_codes (
@@ -830,6 +839,65 @@ const RPG = {
         run(`UPDATE rpg_users SET base_${statType} = base_${statType} + ? WHERE jid = ?`, [amount, jid]);
         return true;
     },
+    addExp(jid, amount) {
+        run('UPDATE rpg_users SET rpg_exp = rpg_exp + ? WHERE jid = ?', [amount, jid]);
+        const u = this.getUser(jid);
+        if (u) {
+            const currentLevel = u.rpg_level || 1;
+            const expNeeded = currentLevel * 500;
+            if (u.rpg_exp >= expNeeded) {
+                run('UPDATE rpg_users SET rpg_level = rpg_level + 1, rpg_exp = 0 WHERE jid = ?', [jid]);
+                
+                // Unlock unique skill every 10 levels
+                const newLevel = currentLevel + 1;
+                let newSkill = null;
+                if (newLevel % 10 === 0) {
+                    const UNIQUE_SKILLS = ['Vampiric', 'Berserk', 'Looter', 'Dragon Slayer', 'Iron Skin', 'Assassin Eye', 'Giant Slayer', 'Lucky Charm'];
+                    let currentSkills = [];
+                    try { currentSkills = JSON.parse(u.unique_skills || '[]'); } catch(e) {}
+                    
+                    const availableSkills = UNIQUE_SKILLS.filter(s => !currentSkills.includes(s));
+                    if (availableSkills.length > 0) {
+                        newSkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+                        currentSkills.push(newSkill);
+                        run('UPDATE rpg_users SET unique_skills = ? WHERE jid = ?', [JSON.stringify(currentSkills), jid]);
+                    }
+                }
+                
+                return { leveledUp: true, newLevel: newLevel, newSkill: newSkill };
+            }
+        }
+        return { leveledUp: false };
+    },
+    setRole(jid, role) {
+        run('UPDATE rpg_users SET rpg_role = ? WHERE jid = ?', [role, jid]);
+    },
+    setLevel(jid, level) {
+        run('UPDATE rpg_users SET rpg_level = ? WHERE jid = ?', [level, jid]);
+    },
+    addUniqueSkill(jid, skill) {
+        const u = this.getUser(jid);
+        let currentSkills = [];
+        try { currentSkills = JSON.parse(u.unique_skills || '[]'); } catch(e) {}
+        if (!currentSkills.includes(skill)) {
+            currentSkills.push(skill);
+            run('UPDATE rpg_users SET unique_skills = ? WHERE jid = ?', [JSON.stringify(currentSkills), jid]);
+            return true;
+        }
+        return false;
+    },
+    removeUniqueSkill(jid, skill) {
+        const u = this.getUser(jid);
+        let currentSkills = [];
+        try { currentSkills = JSON.parse(u.unique_skills || '[]'); } catch(e) {}
+        const index = currentSkills.indexOf(skill);
+        if (index > -1) {
+            currentSkills.splice(index, 1);
+            run('UPDATE rpg_users SET unique_skills = ? WHERE jid = ?', [JSON.stringify(currentSkills), jid]);
+            return true;
+        }
+        return false;
+    },
     resetStat(jid, statType) {
         const validStats = ['power', 'defense', 'luck'];
         if (!validStats.includes(statType)) return false;
@@ -902,6 +970,17 @@ const RPG = {
     },
     getInventoryItem(id) {
         return queryOne('SELECT * FROM rpg_inventory WHERE id = ?', [id]);
+    },
+    getSkills(jid) {
+        const u = this.getUser(jid);
+        try {
+            return JSON.parse(u.skills || '{}');
+        } catch {
+            return {};
+        }
+    },
+    saveSkills(jid, skills) {
+        run('UPDATE rpg_users SET skills = ? WHERE jid = ?', [JSON.stringify(skills), jid]);
     }
 };
 

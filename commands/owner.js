@@ -711,8 +711,8 @@ module.exports = [
             const jid = resolveJid(m, args, 0);
             const level = parseInt(m.quoted?.sender ? args[0] : args[1]) || 1;
             if (!jid) return m.reply('❌ Format: .setlevelrpg @tag 100');
-            Users.getOrCreate(jid);
-            Users.setLevel(jid, level);
+            const { RPG } = require('../database');
+            RPG.setLevel(jid, level);
             await m.reply(`✅ Level RPG @${jid.split('@')[0]} diatur ke *${level}*`, { mentions: [jid] });
         }
     },
@@ -721,7 +721,8 @@ module.exports = [
         async execute({ m, args }) {
             const jid = resolveJid(m, args, 0);
             if (!jid) return m.reply('❌ Tag user!');
-            Users.setLevel(jid, 1);
+            const { RPG } = require('../database');
+            RPG.setLevel(jid, 1);
             await m.reply(`✅ Level RPG @${jid.split('@')[0]} telah direset ke 1`, { mentions: [jid] });
         }
     },
@@ -785,6 +786,80 @@ module.exports = [
             text += `📅 Terdaftar: ${user.created_at}`;
             
             await m.reply(text, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'checkinv', category: 'owner', desc: 'Cek inventory member', usage: '(@tag)', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            if (!jid) return m.reply('❌ Tag user!');
+            const { RPG } = require('../database');
+            const items = RPG.getInventory(jid);
+            if (!items.length) return m.reply('🎒 Tas member ini kosong.');
+            let text = `🎒 *INVENTORY: @${jid.split('@')[0]}*\n\n`;
+            items.forEach((row) => {
+                try {
+                    const item = JSON.parse(row.item_data);
+                    text += `🆔 [${row.id}] ${item.name} (${item.type}) x${row.amount}\n`;
+                } catch(e) {}
+            });
+            await m.reply(text, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'delitem', category: 'owner', desc: 'Hapus item member', usage: '(@tag) <id_inv>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            const id = parseInt(m.quoted?.sender ? args[0] : args[1]);
+            if (!jid || isNaN(id)) return m.reply('❌ Format salah! Contoh: .delitem @tag 5');
+            const { RPG } = require('../database');
+            const itemRow = RPG.getInventoryItem(id);
+            if (!itemRow || itemRow.jid !== jid) {
+                return m.reply('❌ Item tidak ditemukan di inventory member ini!');
+            }
+            RPG.removeInventory(id, itemRow.amount);
+            await m.reply(`✅ Item ID ${id} berhasil dihapus dari inventory @${jid.split('@')[0]}.`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'setrolerpg', category: 'owner', desc: 'Set role RPG user', usage: '(@tag) <role>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            const role = (m.quoted?.sender ? args[0] : args[1]);
+            if (!jid || !role) return m.reply('❌ Format: .setrolerpg @tag Warrior');
+            const { RPG } = require('../database');
+            RPG.setRole(jid, role.charAt(0).toUpperCase() + role.slice(1));
+            await m.reply(`✅ Role RPG @${jid.split('@')[0]} diatur ke *${role}*`, { mentions: [jid] });
+        }
+    },
+    {
+        name: 'addskillrpg', category: 'owner', desc: 'Tambahkan unique skill ke user', usage: '(@tag) <skill>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            let skill = (m.quoted?.sender ? args.slice(0) : args.slice(1)).join(' ');
+            if (!jid || !skill) return m.reply('❌ Format: .addskillrpg @tag Vampiric');
+            const { RPG } = require('../database');
+            const ok = RPG.addUniqueSkill(jid, skill);
+            if (ok) {
+                await m.reply(`✅ Unique Skill *${skill}* berhasil ditambahkan ke @${jid.split('@')[0]}`, { mentions: [jid] });
+            } else {
+                await m.reply(`❌ @${jid.split('@')[0]} sudah memiliki skill tersebut!`, { mentions: [jid] });
+            }
+        }
+    },
+    {
+        name: 'removeskillrpg', category: 'owner', desc: 'Hapus unique skill dari user', usage: '(@tag) <skill>', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const jid = resolveJid(m, args, 0);
+            let skill = (m.quoted?.sender ? args.slice(0) : args.slice(1)).join(' ');
+            if (!jid || !skill) return m.reply('❌ Format: .removeskillrpg @tag Vampiric');
+            const { RPG } = require('../database');
+            const ok = RPG.removeUniqueSkill(jid, skill);
+            if (ok) {
+                await m.reply(`✅ Unique Skill *${skill}* berhasil dihapus dari @${jid.split('@')[0]}`, { mentions: [jid] });
+            } else {
+                await m.reply(`❌ @${jid.split('@')[0]} tidak memiliki skill tersebut!`, { mentions: [jid] });
+            }
         }
     }
 ];
