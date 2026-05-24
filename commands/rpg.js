@@ -616,14 +616,17 @@ module.exports = [
             
             if (userRpg.hp >= maxHp) return m.reply('❤️ HP kamu sudah penuh!');
             
-            const cost = 10; // Biaya Koin RPG
+            const baseCost = 5000;
+            const scalingCost = Math.floor((maxHp - 1000) * 10);
+            const cost = Math.max(baseCost, baseCost + scalingCost);
+            
             const coins = RPG.getCoin(m.sender);
             if (coins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk biaya pengobatan!\n💰 Butuh: 🪙 ${formatNumber(cost)} Koin\n🪙 Koinmu: 🪙 ${formatNumber(coins)}`);
             
             RPG.addCoin(m.sender, -cost);
             RPG.setHp(m.sender, maxHp);
             
-            await m.reply(`💖 *PENGOBATAN BERHASIL!* 💖\n\nHP kamu kini kembali penuh (*${maxHp}*).\n💸 Biaya: 🪙 ${formatNumber(cost)} Koin\n\n_Ayo kembali ke arena pertarungan!_`);
+            await m.reply(`💖 *PENGOBATAN BERHASIL!* 💖\n\nHP kamu kini kembali penuh (*${maxHp}*).\n💸 Biaya: 🪙 ${formatNumber(cost)} Koin RPG\n\n_Ayo kembali ke arena pertarungan!_`);
         }
     },
     {
@@ -658,6 +661,44 @@ module.exports = [
             }
             
             await m.reply(`🛠️ *REPARASI SELESAI!* 🛠️\n\nBerhasil memperbaiki *${itemsToRepair.length}* equipment.\n💰 Total biaya: 🪙 ${formatNumber(totalCost)}\n\n_Equipment kamu kini memiliki durability 100% dan stat kembali aktif!_`);
+        }
+    },
+    {
+        name: 'evolverole', category: 'rpg', desc: 'Evolusi role ke tingkat berikutnya (Butuh Lvl 50/100)',
+        async execute({ m }) {
+            const userRpg = RPG.getUser(m.sender);
+            const role = userRpg.rpg_role || 'Beginner';
+            const lvl = userRpg.rpg_level || 1;
+            
+            const evoMap = {
+                'Warrior': { next: 'Fighter', req: 50, cost: 500000 },
+                'Fighter': { next: 'Gladiator', req: 100, cost: 2000000 },
+                'Tank': { next: 'Paladin', req: 50, cost: 500000 },
+                'Paladin': { next: 'Guardian', req: 100, cost: 2000000 },
+                'Assassin': { next: 'Ninja', req: 50, cost: 500000 },
+                'Ninja': { next: 'Shadowblade', req: 100, cost: 2000000 },
+                'Mage': { next: 'Warlock', req: 50, cost: 500000 },
+                'Warlock': { next: 'Archmage', req: 100, cost: 2000000 },
+                'Necromancer': { next: 'Shadow Monarch', req: 100, cost: 5000000 }
+            };
+            
+            if (!evoMap[role]) {
+                return m.reply(`❌ Role *${role}* belum memiliki evolusi lanjutan atau Anda masih Beginner (gunakan .setrole dahulu).`);
+            }
+            
+            const evo = evoMap[role];
+            if (lvl < evo.req) {
+                return m.reply(`❌ Level RPG Anda belum cukup!\nSyarat Level: ${evo.req}\nLevel Anda: ${lvl}`);
+            }
+            
+            const coins = RPG.getCoin(m.sender);
+            if (coins < evo.cost) {
+                return m.reply(`❌ Koin RPG Anda tidak cukup!\nBiaya Evolusi: 🪙 ${formatNumber(evo.cost)}\nKoin Anda: 🪙 ${formatNumber(coins)}`);
+            }
+            
+            RPG.addCoin(m.sender, -evo.cost);
+            RPG.setRole(m.sender, evo.next);
+            await m.reply(`🎉 *EVOLUSI BERHASIL!* 🎉\n\nRole Anda telah berevolusi dari *${role}* menjadi *${evo.next}*!\nKekuatan baru telah menanti Anda!`);
         }
     },
     {
@@ -1213,8 +1254,8 @@ module.exports = [
             }
             
             // Boss Counter-Attack & Skills
-            const bossPower = 20 + (raid.id * 15); // Scaled higher
-            let bossDmg = randomInt(Math.floor(bossPower * 0.5), bossPower);
+            const bossPower = 100 * Math.pow(raid.id, 1.5); // Buffed boss damage significantly
+            let bossDmg = randomInt(Math.floor(bossPower * 0.8), Math.floor(bossPower * 1.2));
             
             // Boss Skill Chance (15%)
             let skillMsg = '';
@@ -1523,7 +1564,7 @@ module.exports = [
                 
                 if (currentLevel >= info.max) return m.reply(`❌ Skill *${info.name}* sudah mencapai Max Level (${info.max})!`);
                 
-                const cost = 100 * (currentLevel + 1); // Cost scales up
+                const cost = Math.floor(50000 * Math.pow(1.2, currentLevel)); // Cost scales up exponentially
                 const userCoins = RPG.getCoin(m.sender);
                 
                 if (userCoins < cost) return m.reply(`❌ Koin RPG tidak cukup untuk upgrade skill!\n💰 Butuh: 🪙 ${formatNumber(cost)}\n🪙 Koinmu: ${formatNumber(userCoins)}`);

@@ -852,15 +852,31 @@ const RPG = {
                 const newLevel = currentLevel + 1;
                 let newSkill = null;
                 if (newLevel % 10 === 0) {
-                    const UNIQUE_SKILLS = ['Vampiric', 'Berserk', 'Looter', 'Dragon Slayer', 'Iron Skin', 'Assassin Eye', 'Giant Slayer', 'Lucky Charm'];
-                    let currentSkills = [];
-                    try { currentSkills = JSON.parse(u.unique_skills || '[]'); } catch(e) {}
+                    const role = u.rpg_role || 'Beginner';
+                    let UNIQUE_SKILLS = [];
                     
-                    const availableSkills = UNIQUE_SKILLS.filter(s => !currentSkills.includes(s));
-                    if (availableSkills.length > 0) {
-                        newSkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
-                        currentSkills.push(newSkill);
-                        run('UPDATE rpg_users SET unique_skills = ? WHERE jid = ?', [JSON.stringify(currentSkills), jid]);
+                    if (role.includes('Warrior') || role.includes('Fighter') || role.includes('Gladiator')) {
+                        UNIQUE_SKILLS = ['Vampiric', 'Berserk', 'Giant Slayer', 'War Cry', 'Heavy Strike'];
+                    } else if (role.includes('Tank') || role.includes('Paladin') || role.includes('Guardian')) {
+                        UNIQUE_SKILLS = ['Iron Skin', 'Guardian', 'Reflect', 'Taunt', 'Holy Shield'];
+                    } else if (role.includes('Assassin') || role.includes('Ninja') || role.includes('Shadowblade')) {
+                        UNIQUE_SKILLS = ['Assassin Eye', 'Lethal Strike', 'Shadow Step', 'Poison Blade', 'Smoke Bomb'];
+                    } else if (role.includes('Mage') || role.includes('Warlock') || role.includes('Archmage')) {
+                        UNIQUE_SKILLS = ['Dragon Slayer', 'Mana Shield', 'Elemental Burst', 'Meteor', 'Time Warp'];
+                    } else if (role.includes('Necromancer') || role.includes('Shadow Monarch')) {
+                        UNIQUE_SKILLS = ['Arise', 'Soul Reap', 'Shadow Extraction', 'Legion Commander', 'Death Aura'];
+                    }
+                    
+                    if (UNIQUE_SKILLS.length > 0) {
+                        let currentSkills = [];
+                        try { currentSkills = JSON.parse(u.unique_skills || '[]'); } catch(e) {}
+                        
+                        const availableSkills = UNIQUE_SKILLS.filter(s => !currentSkills.includes(s));
+                        if (availableSkills.length > 0) {
+                            newSkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+                            currentSkills.push(newSkill);
+                            run('UPDATE rpg_users SET unique_skills = ? WHERE jid = ?', [JSON.stringify(currentSkills), jid]);
+                        }
                     }
                 }
                 
