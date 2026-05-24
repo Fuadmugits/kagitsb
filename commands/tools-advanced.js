@@ -357,16 +357,28 @@ module.exports = [
                 const FormData = require('form-data');
                 const axios = require('axios');
                 const form = new FormData();
-                form.append('file', buffer, { filename: 'file.bin' });
+                form.append('file', buffer, { filename: 'file.png' });
                 const uploadRes = await axios.post('https://tmpfiles.org/api/v1/upload', form, { headers: form.getHeaders() });
                 const mediaUrl = uploadRes.data?.data?.url?.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
                 if (!mediaUrl) return m.reply('❌ Gagal mengunggah media ke server sementara.');
                 
                 const [top, bottom] = text.split('|').map(t => t.trim());
-                const topText = top || '';
-                const bottomText = bottom || '';
+                let topText = top || '';
+                let bottomText = bottom || '';
                 
-                const apiUrl = `https://api.siputzx.my.id/api/m/smeme?url=${encodeURIComponent(mediaUrl)}&text=${encodeURIComponent(topText)}&text2=${encodeURIComponent(bottomText)}`;
+                // Construct memegen URL
+                let path = '';
+                if (topText && bottomText) {
+                    path = `${encodeURIComponent(topText)}/${encodeURIComponent(bottomText)}.png`;
+                } else if (topText && !bottomText) {
+                    path = `${encodeURIComponent(topText)}.png`;
+                } else if (!topText && bottomText) {
+                    path = `_/${encodeURIComponent(bottomText)}.png`;
+                } else {
+                    path = `_.png`;
+                }
+                
+                const apiUrl = `https://api.memegen.link/images/custom/${path}?background=${encodeURIComponent(mediaUrl)}`;
                 
                 let resultBuffer = await fetchBuffer(apiUrl);
                 if (resultBuffer) {
@@ -374,7 +386,7 @@ module.exports = [
                     await sock.sendMessage(m.chat, { sticker: stickerBuffer }, { quoted: m.raw });
                     await m.react('✅');
                 } else {
-                    await m.reply('❌ Gagal menghasilkan meme.');
+                    await m.reply('❌ Gagal menghasilkan meme. Coba lagi atau pastikan teks tidak memuat karakter terlarang.');
                 }
             } catch (e) {
                 await m.reply('❌ Error: ' + e.message);
