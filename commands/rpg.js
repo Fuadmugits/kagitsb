@@ -357,10 +357,8 @@ module.exports = [
                 }
             }
             
-            let uniqueSkillsList = [];
-            try { uniqueSkillsList = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
             if (uniqueSkillsList.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
-                reply += `\n\n👻 *ARISE!* Ketik *.arise* untuk mencoba membangkitkan bayangan ${monster.name} (Sisa percobaan: 3)!`;
+                reply += `\n\n👻 *ARISE!* Ketik *.arise* untuk mencoba membangkitkan bayangan ${monster.name} (Sisa percobaan: ${attempts})!`;
             }
             
             // Decrease Durability
