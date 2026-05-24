@@ -183,7 +183,15 @@ module.exports = [
             
             // Cooldown check
             const userRpg = RPG.getUser(m.sender);
-            if (userRpg.last_attack) {
+            let uniqueSkillsList = [];
+            try { uniqueSkillsList = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            
+            let skipCooldown = false;
+            if (uniqueSkillsList.includes('Time Warp') && Math.random() < 0.30) {
+                skipCooldown = true;
+            }
+
+            if (userRpg.last_attack && !skipCooldown) {
                 const last = new Date(userRpg.last_attack).getTime();
                 if (Date.now() - last < 30 * 1000) {
                     const sisa = Math.ceil((30 * 1000 - (Date.now() - last)) / 1000);
@@ -195,11 +203,12 @@ module.exports = [
             
             // Skill system integration
             const skills = RPG.getSkills(m.sender);
-            const critLvl = skills.crit || 0;
+            let critLvl = skills.crit || 0;
             const greedLvl = skills.greed || 0;
             
-            let uniqueSkillsList = [];
-            try { uniqueSkillsList = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            if (uniqueSkillsList.includes('Assassin Eye')) {
+                critLvl += 15;
+            }
 
             let shadows = RPG.getShadows(m.sender);
             let shadowPower = 0;
@@ -210,15 +219,37 @@ module.exports = [
             }
             
             const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
-            const effectivePower = (isCrit ? Math.floor(stats.power * 1.5) : stats.power) + shadowPower;
+            const critMult = uniqueSkillsList.includes('Lethal Strike') ? 3.0 : 1.5;
+            
+            let dmgMult = 1.0;
+            if (uniqueSkillsList.includes('Heavy Strike')) dmgMult += 0.15;
+            if (uniqueSkillsList.includes('Poison Blade')) dmgMult += 0.10;
+            if (uniqueSkillsList.includes('Meteor')) dmgMult += 0.25;
+            if (uniqueSkillsList.includes('Giant Slayer') && monster.powerReq > 1000000) dmgMult += 0.30;
+            if (uniqueSkillsList.includes('Dragon Slayer') && (monster.name.toLowerCase().includes('dragon') || monster.powerReq > 1000000)) dmgMult += 0.20;
+            
+            let isBerserk = false;
+            if (uniqueSkillsList.includes('Berserk') && Math.random() < 0.20) {
+                isBerserk = true;
+                dmgMult += 1.5;
+            }
+            
+            const basePlayerPower = isCrit ? Math.floor(stats.power * critMult) : stats.power;
+            const effectivePower = Math.floor(basePlayerPower * dmgMult) + shadowPower;
             
             let actualMonsterPower = monster.powerReq;
             if (uniqueSkillsList.includes('Death Aura')) {
                 actualMonsterPower = Math.floor(actualMonsterPower * 0.85);
             }
+            if (uniqueSkillsList.includes('Iron Skin')) {
+                actualMonsterPower = Math.floor(actualMonsterPower * 0.70);
+            }
 
             if (effectivePower < actualMonsterPower) {
-                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(effectivePower)} ${isCrit ? '(Skill Critical Aktif! 🔥)' : ''}${shadowPower > 0 ? ` (+${formatNumber(shadowPower)} dari Shadow)` : ''}\n🐉 Power Monster: ${formatNumber(actualMonsterPower)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
+                if (uniqueSkillsList.includes('Shadow Step') && Math.random() < 0.20) {
+                    return m.reply(`💨 *SHADOW STEP!* Kamu nyaris kalah melawan ${monster.name}, tapi berhasil menghilang ke dalam bayangan dan melarikan diri tanpa luka!`);
+                }
+                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(effectivePower)} ${isCrit ? '(Critical! 🔥)' : ''}${isBerserk ? '(Berserk! 💢)' : ''}${shadowPower > 0 ? ` (+${formatNumber(shadowPower)} dari Shadow)` : ''}\n🐉 Power Monster: ${formatNumber(actualMonsterPower)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
             }
             
             // Victory
@@ -261,6 +292,12 @@ module.exports = [
                 expGained = Math.floor(expGained * 1.30);
                 koinGained = Math.floor(koinGained * 1.30);
             }
+            if (uniqueSkillsList.includes('War Cry')) {
+                expGained = Math.floor(expGained * 1.20);
+            }
+            if (uniqueSkillsList.includes('Taunt')) {
+                koinGained = Math.floor(koinGained * 1.50);
+            }
             
             // Apply title exp multiplier
             if (stats.expMult && stats.expMult > 1.0) {
@@ -277,6 +314,12 @@ module.exports = [
             }
             
             let skillMsgs = [];
+            if (skipCooldown) skillMsgs.push(`⏳ *Time Warp Aktif (Bebas Cooldown!)*`);
+            if (isBerserk) skillMsgs.push(`💢 *Berserk Aktif (Damage 2.5x!)*`);
+            if (uniqueSkillsList.includes('Vampiric')) {
+                RPG.addHp(m.sender, 50);
+                skillMsgs.push(`🦇 *Vampiric Aktif (+50 HP)*`);
+            }
             
             // Greed skill bonus (+2% coins per level)
             if (greedLvl > 0) {
@@ -1354,31 +1397,49 @@ module.exports = [
             
             // Skill system integration
             const skills = RPG.getSkills(m.sender);
-            const critLvl = skills.crit || 0;
+            let critLvl = skills.crit || 0;
             const shieldLvl = skills.shield || 0;
-            
-            let shadows = RPG.getShadows(m.sender);
-            let shadowPower = 0;
-            shadows.forEach(s => shadowPower += s.power);
             
             const userRpg = RPG.getUser(m.sender);
             let uniqueSkills = [];
             try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
             
+            if (uniqueSkills.includes('Assassin Eye')) critLvl += 15;
+            
+            let shadows = RPG.getShadows(m.sender);
+            let shadowPower = 0;
+            shadows.forEach(s => shadowPower += s.power);
+            
             if (uniqueSkills.includes('Legion Commander')) {
                 shadowPower *= 2;
             }
-            damage += shadowPower;
+            
+            let dmgMult = 1.0;
+            if (uniqueSkills.includes('Heavy Strike')) dmgMult += 0.15;
+            if (uniqueSkills.includes('Poison Blade')) dmgMult += 0.10;
+            if (uniqueSkills.includes('Meteor')) dmgMult += 0.25;
+            if (uniqueSkills.includes('Giant Slayer')) dmgMult += 0.30;
+            if (uniqueSkills.includes('Dragon Slayer')) dmgMult += 0.20;
+            
+            let isBerserk = false;
+            if (uniqueSkills.includes('Berserk') && Math.random() < 0.20) {
+                isBerserk = true;
+                dmgMult += 1.5;
+            }
+            
+            if (uniqueSkills.includes('Elemental Burst') && Math.random() < 0.25) {
+                dmgMult += 1.0;
+            }
             
             const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
+            const critMult = uniqueSkills.includes('Lethal Strike') ? 3.0 : 2.0;
+            
             if (isCrit) {
-                damage *= 2;
+                damage = Math.floor(damage * critMult);
             }
             
+            damage = Math.floor(damage * dmgMult) + shadowPower;
             
-            if (uniqueSkills.includes('Dragon Slayer')) {
-                damage = Math.floor(damage * 1.20);
-            }
             if (uniqueSkills.includes('Vampiric')) {
                 const healAmt = Math.floor(damage * 0.05);
                 RPG.addHp(m.sender, healAmt);
@@ -1401,14 +1462,23 @@ module.exports = [
             if (uniqueSkills.includes('Death Aura')) {
                 bossPower = bossPower * 0.85; // Death Aura reduces boss counter-attack by 15%
             }
-            let bossDmg = randomInt(Math.floor(bossPower * 0.8), Math.floor(bossPower * 1.2));
+            if (uniqueSkills.includes('Guardian')) {
+                bossPower = bossPower * 0.60; // Guardian reduces boss counter-attack by 40%
+            }
             
-            // Boss Skill Chance (15%)
+            let bossDmg = randomInt(Math.floor(bossPower * 0.8), Math.floor(bossPower * 1.2));
+            if (isBerserk) bossDmg = Math.floor(bossDmg * 1.20); // Berserk takes 20% more damage
+            
+            // Boss Skill Chance (15% base, reduced by War Cry, blocked by Smoke Bomb)
             let skillMsg = '';
             let extraDurabilityLoss = 0;
             let stunEffect = 0;
             
-            if (Math.random() < 0.15) {
+            let bossSkillChance = 0.15;
+            if (uniqueSkills.includes('War Cry')) bossSkillChance -= 0.05;
+            if (uniqueSkills.includes('Smoke Bomb')) bossSkillChance = 0;
+            
+            if (Math.random() < bossSkillChance) {
                 const bossSkillsList = [
                     { name: '🔥 CRITICAL STRIKE', effect: () => { bossDmg *= 2; } },
                     { name: '☣️ CORROSIVE CLAW', effect: () => { extraDurabilityLoss = 5; } },
@@ -1425,6 +1495,34 @@ module.exports = [
             // Shield Aura skill bonus (reduces damage taken from boss)
             if (shieldLvl > 0) {
                 bossDmg = Math.floor(bossDmg * (1 - shieldLvl * 0.01));
+            }
+            if (uniqueSkills.includes('Iron Skin')) {
+                bossDmg = Math.floor(bossDmg * 0.70); // -30% damage taken
+            }
+            
+            if (uniqueSkills.includes('Holy Shield') && Math.random() < 0.15) {
+                bossDmg = 0;
+                skillMsg += `\n🛡️ *HOLY SHIELD!* Serangan bos berhasil diblokir penuh!`;
+            } else if (uniqueSkills.includes('Shadow Step') && Math.random() < 0.20) {
+                bossDmg = 0;
+                skillMsg += `\n💨 *SHADOW STEP!* Anda menghilang dan menghindari serangan bos!`;
+            }
+            
+            if (uniqueSkills.includes('Reflect') && bossDmg > 0) {
+                const reflectDmg = Math.floor(bossDmg * 0.20);
+                damage += reflectDmg; // add reflected damage to boss damage
+                skillMsg += `\n🪞 *REFLECT!* Memantulkan ${reflectDmg} damage kembali ke boss!`;
+            }
+            
+            if (uniqueSkills.includes('Mana Shield') && bossDmg > 0) {
+                const manaAbsorb = Math.floor(bossDmg * 0.25);
+                bossDmg -= manaAbsorb;
+                RPG.addHp(m.sender, Math.floor(manaAbsorb * 0.5)); // heal half of absorbed
+                skillMsg += `\n🔮 *MANA SHIELD!* Menyerap ${manaAbsorb} damage!`;
+            }
+            
+            if (uniqueSkills.includes('Time Warp')) {
+                stunEffect = Math.floor(stunEffect * 0.5); // reduce stun duration by 50%
             }
             
             RPG.addHp(m.sender, -bossDmg);
@@ -1460,6 +1558,12 @@ module.exports = [
                     if (pUniqueSkills.includes('Soul Reap')) {
                         coinReward = Math.floor(coinReward * 1.30);
                         expReward = Math.floor(expReward * 1.30);
+                    }
+                    if (pUniqueSkills.includes('War Cry')) {
+                        expReward = Math.floor(expReward * 1.20);
+                    }
+                    if (pUniqueSkills.includes('Taunt')) {
+                        coinReward = Math.floor(coinReward * 1.50);
                     }
                     
                     RPG.addCoin(jid, coinReward);
