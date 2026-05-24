@@ -198,15 +198,27 @@ module.exports = [
             const critLvl = skills.crit || 0;
             const greedLvl = skills.greed || 0;
             
+            let uniqueSkillsList = [];
+            try { uniqueSkillsList = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+
             let shadows = RPG.getShadows(m.sender);
             let shadowPower = 0;
             shadows.forEach(s => shadowPower += s.power);
+
+            if (uniqueSkillsList.includes('Legion Commander')) {
+                shadowPower *= 2;
+            }
             
             const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
             const effectivePower = (isCrit ? Math.floor(stats.power * 1.5) : stats.power) + shadowPower;
             
-            if (effectivePower < monster.powerReq) {
-                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(effectivePower)} ${isCrit ? '(Skill Critical Aktif! 🔥)' : ''}${shadowPower > 0 ? ` (+${formatNumber(shadowPower)} dari Shadow)` : ''}\n🐉 Power Monster: ${formatNumber(monster.powerReq)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
+            let actualMonsterPower = monster.powerReq;
+            if (uniqueSkillsList.includes('Death Aura')) {
+                actualMonsterPower = Math.floor(actualMonsterPower * 0.85);
+            }
+
+            if (effectivePower < actualMonsterPower) {
+                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(effectivePower)} ${isCrit ? '(Skill Critical Aktif! 🔥)' : ''}${shadowPower > 0 ? ` (+${formatNumber(shadowPower)} dari Shadow)` : ''}\n🐉 Power Monster: ${formatNumber(actualMonsterPower)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
             }
             
             // Victory
@@ -244,6 +256,11 @@ module.exports = [
             const scale = Math.max(1, Math.sqrt(monster.powerReq));
             expGained = Math.floor(randomInt(2 * scale, 5 * scale));
             koinGained = Math.floor(randomInt(1 * scale, 3 * scale));
+            
+            if (uniqueSkillsList.includes('Soul Reap')) {
+                expGained = Math.floor(expGained * 1.30);
+                koinGained = Math.floor(koinGained * 1.30);
+            }
             
             // Apply title exp multiplier
             if (stats.expMult && stats.expMult > 1.0) {
@@ -284,10 +301,10 @@ module.exports = [
             }
             
             // If user has 'Arise' skill, record this kill
-            const uniqueSkills = userRpg.unique_skills ? JSON.parse(userRpg.unique_skills) : [];
             const role = userRpg.rpg_role || 'Beginner';
-            if (uniqueSkills.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
-                RPG.setLastKill(m.sender, { name: monster.name, power: monster.powerReq, attempts: 3 });
+            const attempts = uniqueSkillsList.includes('Shadow Extraction') ? 5 : 3;
+            if (uniqueSkillsList.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
+                RPG.setLastKill(m.sender, { name: monster.name, power: monster.powerReq, attempts: attempts });
             }
             
             if (expResult.leveledUp) {
@@ -763,8 +780,8 @@ module.exports = [
             lastKill.attempts -= 1;
             RPG.setLastKill(m.sender, lastKill);
             
-            // 60% chance to success
-            const successChance = 0.60;
+            // 60% chance to success, 90% if Shadow Extraction
+            const successChance = uniqueSkills.includes('Shadow Extraction') ? 0.90 : 0.60;
             if (Math.random() < successChance) {
                 // Determine Power Multiplier based on Role
                 const role = userRpg.rpg_role || 'Beginner';
@@ -1343,6 +1360,14 @@ module.exports = [
             let shadows = RPG.getShadows(m.sender);
             let shadowPower = 0;
             shadows.forEach(s => shadowPower += s.power);
+            
+            const userRpg = RPG.getUser(m.sender);
+            let uniqueSkills = [];
+            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            
+            if (uniqueSkills.includes('Legion Commander')) {
+                shadowPower *= 2;
+            }
             damage += shadowPower;
             
             const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
@@ -1350,9 +1375,6 @@ module.exports = [
                 damage *= 2;
             }
             
-            const userRpg = RPG.getUser(m.sender);
-            let uniqueSkills = [];
-            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
             
             if (uniqueSkills.includes('Dragon Slayer')) {
                 damage = Math.floor(damage * 1.20);
@@ -1375,7 +1397,10 @@ module.exports = [
             }
             
             // Boss Counter-Attack & Skills
-            const bossPower = 100 * Math.pow(raid.id, 1.5); // Buffed boss damage significantly
+            let bossPower = 100 * Math.pow(raid.id, 1.5); // Buffed boss damage significantly
+            if (uniqueSkills.includes('Death Aura')) {
+                bossPower = bossPower * 0.85; // Death Aura reduces boss counter-attack by 15%
+            }
             let bossDmg = randomInt(Math.floor(bossPower * 0.8), Math.floor(bossPower * 1.2));
             
             // Boss Skill Chance (15%)
@@ -1425,8 +1450,18 @@ module.exports = [
                 const topContributorJid = participants[0][0];
                 
                 for (const [jid, dmg] of participants) {
-                    const coinReward = Math.floor(dmg * 0.0005);
-                    const expReward = Math.floor(dmg * 0.005);
+                    let coinReward = Math.floor(dmg * 0.0005);
+                    let expReward = Math.floor(dmg * 0.005);
+                    
+                    const targetUserRpg = RPG.getUser(jid);
+                    let pUniqueSkills = [];
+                    try { pUniqueSkills = JSON.parse(targetUserRpg.unique_skills || '[]'); } catch(e) {}
+                    
+                    if (pUniqueSkills.includes('Soul Reap')) {
+                        coinReward = Math.floor(coinReward * 1.30);
+                        expReward = Math.floor(expReward * 1.30);
+                    }
+                    
                     RPG.addCoin(jid, coinReward);
                     const expResult = RPG.addExp(jid, expReward);
                     
@@ -1435,12 +1470,10 @@ module.exports = [
                         rewardMsg += `\n    🌟 *Naik Lvl ${expResult.newLevel}!*${expResult.newSkill ? ` 🎁 [${expResult.newSkill}]` : ''}`;
                     }
                     
-                    const targetUserRpg = RPG.getUser(jid);
-                    let uniqueSkills = [];
-                    try { uniqueSkills = JSON.parse(targetUserRpg.unique_skills || '[]'); } catch(e) {}
                     const role = targetUserRpg.rpg_role || 'Beginner';
-                    if (uniqueSkills.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
-                        RPG.setLastKill(jid, { name: res.raid.boss, power: Math.floor(100 * Math.pow(res.raid.id, 1.5)), attempts: 3 });
+                    const attempts = pUniqueSkills.includes('Shadow Extraction') ? 5 : 3;
+                    if (pUniqueSkills.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
+                        RPG.setLastKill(jid, { name: res.raid.boss, power: Math.floor(100 * Math.pow(res.raid.id, 1.5)), attempts: attempts });
                         rewardMsg += `\n    👻 *ARISE!* Ketik *.arise* untuk mencoba membangkitkan bayangan ${res.raid.boss} (3 percobaan)!`;
                     }
                     
