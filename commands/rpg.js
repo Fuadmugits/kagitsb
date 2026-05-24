@@ -1544,6 +1544,7 @@ module.exports = [
         name: 'skills', aliases: ['skill'], category: 'rpg', desc: 'Lihat dan upgrade skill RPG kamu', usage: '[upgrade <nama_skill>]',
         async execute({ sock, m, args }) {
             const { RPG } = require('../database');
+            const { formatNumber } = require('../lib/functions');
             const skills = RPG.getSkills(m.sender);
             
             const action = args[0]?.toLowerCase();
@@ -1576,7 +1577,6 @@ module.exports = [
                 return m.reply(`✅ *SKILL UPGRADE BERHASIL!*\n\n✨ Skill: ${info.name}\n🆙 Level: ${currentLevel} -> ${currentLevel + 1}\n💰 Biaya: 🪙 ${formatNumber(cost)} Koin RPG\n\n_Efek: +1% peluang/efek per level_`);
             }
             
-            const { formatNumber } = require('../lib/functions');
             let text = `╭───「 🌟 *RPG SKILLS* 」\n│\n`;
             for (const key in skillInfo) {
                 const lvl = skills[key] || 0;

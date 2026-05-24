@@ -403,12 +403,15 @@ module.exports = [
     {
         name: 'brat', category: 'tools', desc: 'Buat teks brat style', usage: '(text)',
         async execute({ sock, m, text }) {
-            if (!text) return m.reply('❌ Masukkan teks!');
+            const msgText = text || (m.quoted && m.quoted.text ? m.quoted.text : '');
+            if (!msgText) return m.reply('❌ Masukkan teks atau reply pesan dengan teks!');
             try {
-                let buffer = await fetchBuffer(`https://api.siputzx.my.id/api/m/brat?text=${encodeURIComponent(text)}`);
+                await m.react('⏳');
+                let buffer = await fetchBuffer(`https://api.siputzx.my.id/api/m/brat?text=${encodeURIComponent(msgText)}`);
                 if (buffer) {
                     buffer = await toWebp(buffer);
                     await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m.raw });
+                    await m.react('✅');
                 }
                 else await m.reply('❌ Gagal generate brat.');
             } catch { await m.reply('❌ Error.'); }
