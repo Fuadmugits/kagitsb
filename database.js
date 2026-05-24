@@ -180,6 +180,8 @@ async function initDatabase() {
     try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_exp INTEGER DEFAULT 0'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN rpg_role TEXT DEFAULT "Beginner"'); } catch {}
     try { db.run('ALTER TABLE rpg_users ADD COLUMN unique_skills TEXT DEFAULT "[]"'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN shadows TEXT DEFAULT "[]"'); } catch {}
+    try { db.run('ALTER TABLE rpg_users ADD COLUMN last_kill TEXT'); } catch {}
 
     // Redeem Codes System
     db.run(`CREATE TABLE IF NOT EXISTS gift_codes (
@@ -913,6 +915,38 @@ const RPG = {
             return true;
         }
         return false;
+    },
+    addShadow(jid, shadow) {
+        const u = this.getUser(jid);
+        let shadows = [];
+        try { shadows = JSON.parse(u.shadows || '[]'); } catch(e) {}
+        if (shadows.length >= 100) return false;
+        shadows.push(shadow);
+        run('UPDATE rpg_users SET shadows = ? WHERE jid = ?', [JSON.stringify(shadows), jid]);
+        return true;
+    },
+    removeShadow(jid, index) {
+        const u = this.getUser(jid);
+        let shadows = [];
+        try { shadows = JSON.parse(u.shadows || '[]'); } catch(e) {}
+        if (index >= 0 && index < shadows.length) {
+            shadows.splice(index, 1);
+            run('UPDATE rpg_users SET shadows = ? WHERE jid = ?', [JSON.stringify(shadows), jid]);
+            return true;
+        }
+        return false;
+    },
+    getShadows(jid) {
+        const u = this.getUser(jid);
+        try { return JSON.parse(u.shadows || '[]'); } catch(e) { return []; }
+    },
+    setLastKill(jid, killData) {
+        run('UPDATE rpg_users SET last_kill = ? WHERE jid = ?', [JSON.stringify(killData), jid]);
+    },
+    getLastKill(jid) {
+        const u = this.getUser(jid);
+        if (!u.last_kill) return null;
+        try { return JSON.parse(u.last_kill); } catch(e) { return null; }
     },
     resetStat(jid, statType) {
         const validStats = ['power', 'defense', 'luck'];

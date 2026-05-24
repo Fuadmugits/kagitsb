@@ -198,14 +198,20 @@ module.exports = [
             const critLvl = skills.crit || 0;
             const greedLvl = skills.greed || 0;
             
+            let shadows = RPG.getShadows(m.sender);
+            let shadowPower = 0;
+            shadows.forEach(s => shadowPower += s.power);
+            
             const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
-            const effectivePower = isCrit ? Math.floor(stats.power * 1.5) : stats.power;
+            const effectivePower = (isCrit ? Math.floor(stats.power * 1.5) : stats.power) + shadowPower;
             
             if (effectivePower < monster.powerReq) {
-                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(effectivePower)} ${isCrit ? '(Skill Critical Aktif! 🔥)' : ''}\n🐉 Power Monster: ${formatNumber(monster.powerReq)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
+                return m.reply(`💀 Kamu kalah melawan ${monster.name}!\n\n⚔️ Power Kamu: ${formatNumber(effectivePower)} ${isCrit ? '(Skill Critical Aktif! 🔥)' : ''}${shadowPower > 0 ? ` (+${formatNumber(shadowPower)} dari Shadow)` : ''}\n🐉 Power Monster: ${formatNumber(monster.powerReq)}\n\n_Lengkapi armor dan senjata yang lebih kuat!_`);
             }
             
             // Victory
+            RPG.setLastKill(m.sender, { name: monster.name, power: monster.powerReq, attempts: 3 });
+            
             let reply = isCrit 
                 ? `🔥 *CRITICAL STRIKE!!!* ⚔️\nDengan kekuatan luar biasa, kamu berhasil menaklukkan *${monster.name}*!\n\n` 
                 : `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
@@ -293,6 +299,12 @@ module.exports = [
                 if (expResult.newSkill) {
                     reply += `\n🎁 *UNIQUE SKILL UNLOCKED:* [${expResult.newSkill}]`;
                 }
+            }
+            
+            let uniqueSkills = [];
+            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            if (uniqueSkills.includes('Arise')) {
+                reply += `\n\n👻 *ARISE!* Ketik *.arise* untuk mencoba membangkitkan bayangan ${monster.name} (Sisa percobaan: 3)!`;
             }
             
             // Decrease Durability
@@ -481,10 +493,29 @@ module.exports = [
                 if (aura) auraName = aura.name;
             }
             
+            let uniqueSkills = [];
+            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            
+            let shadows = [];
+            try { shadows = JSON.parse(userRpg.shadows || '[]'); } catch(e) {}
+            
             let text = `╭───「 👤 *RPG PROFILE* 」\n`;
             text += `│ 🏅 *Gelar/Aura:* [ ${auraName} ]\n`;
             text += `│ 👤 *Nama:* ${user.name}\n`;
-            text += `│ 🌟 *Level:* ${user.level} (EXP: ${user.exp})\n`;
+            text += `│ 🌟 *Level RPG:* ${userRpg.rpg_level || 1} (EXP: ${formatNumber(userRpg.rpg_exp || 0)})\n`;
+            text += `│ 🎭 *Role:* ${userRpg.rpg_role || 'Beginner'}\n`;
+            if (uniqueSkills.length > 0) {
+                text += `│ 🔮 *Unique Skills:* ${uniqueSkills.join(', ')}\n`;
+            }
+            if (shadows.length > 0) {
+                text += `│ 👻 *Shadows (${shadows.length}/100):*\n`;
+                shadows.slice(0, 5).forEach((s, i) => {
+                    text += `│    ${i+1}. ${s.name} (P: ${formatNumber(s.power)})\n`;
+                });
+                if (shadows.length > 5) {
+                    text += `│    ... dan ${shadows.length - 5} lainnya.\n`;
+                }
+            }
             text += `│ 🪙 *Koin RPG:* ${formatNumber(userRpg.rpg_coin || 0)}\n`;
             text += `│ ❤️ *HP:* ${formatNumber(userRpg.hp || 0)} / 1.000\n`;
             text += `│\n│ 📊 *TOTAL STATS (Final):*\n`;
@@ -699,6 +730,69 @@ module.exports = [
             RPG.addCoin(m.sender, -evo.cost);
             RPG.setRole(m.sender, evo.next);
             await m.reply(`🎉 *EVOLUSI BERHASIL!* 🎉\n\nRole Anda telah berevolusi dari *${role}* menjadi *${evo.next}*!\nKekuatan baru telah menanti Anda!`);
+        }
+    },
+    {
+        name: 'arise', aliases: ['bangkitkan'], category: 'rpg', desc: 'Membangkitkan monster/boss terakhir yang kamu bunuh menjadi Shadow (Skill: Arise)',
+        async execute({ sock, m }) {
+            const userRpg = RPG.getUser(m.sender);
+            let uniqueSkills = [];
+            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            
+            if (!uniqueSkills.includes('Arise')) {
+                return m.reply('❌ Kamu tidak memiliki skill *Arise* (Skill khusus Necromancer/Shadow Monarch).');
+            }
+            
+            const lastKill = RPG.getLastKill(m.sender);
+            if (!lastKill) {
+                return m.reply('❌ Kamu belum membunuh monster/boss apa pun yang bisa dibangkitkan akhir-akhir ini.');
+            }
+            
+            if (lastKill.attempts <= 0) {
+                return m.reply('❌ Jiwa monster ini telah hancur karena gagal dibangkitkan berulang kali.');
+            }
+            
+            let shadows = RPG.getShadows(m.sender);
+            if (shadows.length >= 100) {
+                return m.reply('❌ Pasukan bayanganmu (Shadow) sudah penuh (Maksimal 100)! Gunakan perintah *.removeshadow <nomor>* untuk melepas salah satu shadow.');
+            }
+            
+            lastKill.attempts -= 1;
+            RPG.setLastKill(m.sender, lastKill);
+            
+            // 60% chance to success
+            const successChance = 0.60;
+            if (Math.random() < successChance) {
+                // Success
+                const shadow = { name: lastKill.name, power: Math.floor(lastKill.power * 0.15) };
+                RPG.addShadow(m.sender, shadow);
+                RPG.setLastKill(m.sender, null); // Clear last kill so it can't be arisen again
+                const { formatNumber } = require('../lib/functions');
+                await m.reply(`🌑 *ARISE BERHASIL!* 🌑\n\nBayangan dari *${lastKill.name}* telah bangkit dan bergabung dengan Shadow Army milikmu!\n🗡️ Tambahan Power: +${formatNumber(shadow.power)}\n\n_Cek profil kamu menggunakan .rpgprofile_`);
+            } else {
+                // Fail
+                if (lastKill.attempts > 0) {
+                    await m.reply(`⚠️ *Gagal membangkitkan bayangan!* Jiwa *${lastKill.name}* menolak panggilanmu.\n\nSisa percobaan: ${lastKill.attempts}x lagi.`);
+                } else {
+                    await m.reply(`💥 *Gagal!* Jiwa *${lastKill.name}* telah hancur sepenuhnya dan tidak bisa dibangkitkan lagi.`);
+                }
+            }
+        }
+    },
+    {
+        name: 'removeshadow', aliases: ['delshadow', 'lepasbayangan'], category: 'rpg', desc: 'Melepaskan shadow dari pasukan bayanganmu', usage: '<nomor_shadow>',
+        async execute({ sock, m, args }) {
+            const index = parseInt(args[0]) - 1;
+            if (isNaN(index)) return m.reply('❌ Masukkan nomor shadow yang ingin dilepas (1-3).\nCek nomor shadow di *.rpgprofile*');
+            
+            const shadows = RPG.getShadows(m.sender);
+            if (index < 0 || index >= shadows.length) {
+                return m.reply('❌ Nomor shadow tidak valid!');
+            }
+            
+            const removed = shadows[index];
+            RPG.removeShadow(m.sender, index);
+            await m.reply(`👋 Kamu telah melepaskan bayangan *${removed.name}* kembali ke dalam kegelapan.`);
         }
     },
     {
@@ -1224,6 +1318,11 @@ module.exports = [
             const critLvl = skills.crit || 0;
             const shieldLvl = skills.shield || 0;
             
+            let shadows = RPG.getShadows(m.sender);
+            let shadowPower = 0;
+            shadows.forEach(s => shadowPower += s.power);
+            damage += shadowPower;
+            
             const isCrit = critLvl > 0 && Math.random() < (critLvl / 100);
             if (isCrit) {
                 damage *= 2;
@@ -1313,6 +1412,13 @@ module.exports = [
                     rewardMsg += `\n👤 @${jid.split('@')[0]}: ${formatNumber(dmg)} DMG -> 🪙 +${formatNumber(coinReward)} Koin RPG | ✨ +${formatNumber(expReward)} EXP`;
                     if (expResult.leveledUp) {
                         rewardMsg += `\n    🌟 *Naik Lvl ${expResult.newLevel}!*${expResult.newSkill ? ` 🎁 [${expResult.newSkill}]` : ''}`;
+                    }
+                    
+                    let uniqueSkills = [];
+                    try { uniqueSkills = JSON.parse(targetUserRpg.unique_skills || '[]'); } catch(e) {}
+                    if (uniqueSkills.includes('Arise')) {
+                        RPG.setLastKill(jid, { name: res.raid.boss, power: Math.floor(100 * Math.pow(res.raid.id, 1.5)), attempts: 3 });
+                        rewardMsg += `\n    👻 *ARISE!* Ketik *.arise* untuk mencoba membangkitkan bayangan ${res.raid.boss} (3 percobaan)!`;
                     }
                     
                     // --- BOSS AURA DROP SYSTEM ---
