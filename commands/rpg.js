@@ -283,8 +283,11 @@ module.exports = [
                 reply += ` _(Admin Abuse x${multiplier} Buff)_`;
             }
             
-            if (skillMsgs.length > 0) {
-                reply += `\n\n${skillMsgs.join('\n')}`;
+            // If user has 'Arise' skill, record this kill
+            const uniqueSkills = userRpg.unique_skills ? JSON.parse(userRpg.unique_skills) : [];
+            const role = userRpg.rpg_role || 'Beginner';
+            if (uniqueSkills.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
+                RPG.setLastKill(m.sender, { name: monster.name, power: monster.powerReq, attempts: 3 });
             }
             
             if (expResult.leveledUp) {
@@ -294,9 +297,9 @@ module.exports = [
                 }
             }
             
-            let uniqueSkills = [];
-            try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
-            if (uniqueSkills.includes('Arise')) {
+            let uniqueSkillsList = [];
+            try { uniqueSkillsList = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
+            if (uniqueSkillsList.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
                 reply += `\n\n👻 *ARISE!* Ketik *.arise* untuk mencoba membangkitkan bayangan ${monster.name} (Sisa percobaan: 3)!`;
             }
             
@@ -509,8 +512,11 @@ module.exports = [
                 if (shadows.length > 5) {
                     text += `│    ... dan ${shadows.length - 5} lainnya.\n`;
                 }
-            } else if (uniqueSkills.includes('Arise')) {
-                text += `│ 👻 *Shadows (0/100)*\n`;
+            } else {
+                const role = userRpg.rpg_role || 'Beginner';
+                if (uniqueSkills.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
+                    text += `│ 👻 *Shadows (0/100)*\n`;
+                }
             }
             text += `│ 🪙 *Koin RPG:* ${formatNumber(userRpg.rpg_coin || 0)}\n`;
             text += `│ ❤️ *HP:* ${formatNumber(userRpg.hp || 0)} / 1.000\n`;
@@ -735,7 +741,8 @@ module.exports = [
             let uniqueSkills = [];
             try { uniqueSkills = JSON.parse(userRpg.unique_skills || '[]'); } catch(e) {}
             
-            if (!uniqueSkills.includes('Arise')) {
+            const role = userRpg.rpg_role || 'Beginner';
+            if (!uniqueSkills.includes('Arise') && role !== 'Necromancer' && role !== 'Shadow Monarch') {
                 return m.reply('❌ Kamu tidak memiliki skill *Arise* (Skill khusus Necromancer/Shadow Monarch).');
             }
             
@@ -1407,10 +1414,9 @@ module.exports = [
             
             // Update cooldown di db (Unix Timestamp)
             const { run } = require('../database');
-            const totalCooldown = (5 * 1000) + stunEffect;
             const cooldownExpire = Date.now() + stunEffect;
-            try { run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [Date.now() + stunEffect, m.sender]); } catch {
-                try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [Date.now() + stunEffect, m.sender]); } catch {}
+            try { run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [cooldownExpire, m.sender]); } catch {
+                try { run(`ALTER TABLE rpg_users ADD COLUMN last_raid_attack TEXT`); run(`UPDATE rpg_users SET last_raid_attack = ? WHERE jid = ?`, [cooldownExpire, m.sender]); } catch {}
             }
 
             if (res.status === 'dead') {
@@ -1429,16 +1435,17 @@ module.exports = [
                         rewardMsg += `\n    🌟 *Naik Lvl ${expResult.newLevel}!*${expResult.newSkill ? ` 🎁 [${expResult.newSkill}]` : ''}`;
                     }
                     
+                    const targetUserRpg = RPG.getUser(jid);
                     let uniqueSkills = [];
                     try { uniqueSkills = JSON.parse(targetUserRpg.unique_skills || '[]'); } catch(e) {}
-                    if (uniqueSkills.includes('Arise')) {
+                    const role = targetUserRpg.rpg_role || 'Beginner';
+                    if (uniqueSkills.includes('Arise') || role === 'Necromancer' || role === 'Shadow Monarch') {
                         RPG.setLastKill(jid, { name: res.raid.boss, power: Math.floor(100 * Math.pow(res.raid.id, 1.5)), attempts: 3 });
                         rewardMsg += `\n    👻 *ARISE!* Ketik *.arise* untuk mencoba membangkitkan bayangan ${res.raid.boss} (3 percobaan)!`;
                     }
                     
                     // --- BOSS AURA DROP SYSTEM ---
                     const auraId = `T${77 + res.raid.id}`;
-                    const targetUserRpg = RPG.getUser(jid);
                     let unlocked = [];
                     try { unlocked = JSON.parse(targetUserRpg.unlocked_auras || '[]'); } catch(e) {}
 
