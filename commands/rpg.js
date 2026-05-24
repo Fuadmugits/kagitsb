@@ -241,16 +241,9 @@ module.exports = [
             let expGained = 0;
             let koinGained = 0;
             
-            if (monster.class === 'lemah') {
-                expGained = randomInt(5, 20);
-                koinGained = randomInt(5, 15);
-            } else if (monster.class === 'kuat') {
-                expGained = randomInt(50, 150);
-                koinGained = randomInt(30, 80);
-            } else {
-                expGained = randomInt(500, 2000);
-                koinGained = randomInt(150, 400);
-            }
+            const scale = Math.max(1, Math.sqrt(monster.powerReq));
+            expGained = Math.floor(randomInt(2 * scale, 5 * scale));
+            koinGained = Math.floor(randomInt(1 * scale, 3 * scale));
             
             // Apply title exp multiplier
             if (stats.expMult && stats.expMult > 1.0) {
@@ -510,11 +503,14 @@ module.exports = [
             if (shadows.length > 0) {
                 text += `│ 👻 *Shadows (${shadows.length}/100):*\n`;
                 shadows.slice(0, 5).forEach((s, i) => {
-                    text += `│    ${i+1}. ${s.name} (P: ${formatNumber(s.power)})\n`;
+                    const rankText = s.rank ? ` [${s.rank}]` : '';
+                    text += `│    ${i+1}. ${s.name}${rankText} (P: ${formatNumber(s.power)})\n`;
                 });
                 if (shadows.length > 5) {
                     text += `│    ... dan ${shadows.length - 5} lainnya.\n`;
                 }
+            } else if (uniqueSkills.includes('Arise')) {
+                text += `│ 👻 *Shadows (0/100)*\n`;
             }
             text += `│ 🪙 *Koin RPG:* ${formatNumber(userRpg.rpg_coin || 0)}\n`;
             text += `│ ❤️ *HP:* ${formatNumber(userRpg.hp || 0)} / 1.000\n`;
@@ -763,12 +759,31 @@ module.exports = [
             // 60% chance to success
             const successChance = 0.60;
             if (Math.random() < successChance) {
+                // Determine Power Multiplier based on Role
+                const role = userRpg.rpg_role || 'Beginner';
+                let powerMult = 0.01; // Necromancer: 1%
+                if (role === 'Shadow Monarch') {
+                    powerMult = 0.10; // Shadow Monarch: 10% (10x stronger)
+                }
+
                 // Success
-                const shadow = { name: lastKill.name, power: Math.floor(lastKill.power * 0.15) };
+                let shadowPower = Math.floor(lastKill.power * powerMult);
+                if (shadowPower < 1) shadowPower = 1;
+
+                // Determine Rank
+                let rank = 'Normal';
+                if (shadowPower >= 10000000000) rank = 'Grand Marshal';
+                else if (shadowPower >= 100000000) rank = 'Marshal';
+                else if (shadowPower >= 1000000) rank = 'Commander';
+                else if (shadowPower >= 100000) rank = 'Elite Knight';
+                else if (shadowPower >= 10000) rank = 'Knight';
+                else if (shadowPower >= 1000) rank = 'Elite';
+
+                const shadow = { name: lastKill.name, power: shadowPower, rank: rank };
                 RPG.addShadow(m.sender, shadow);
                 RPG.setLastKill(m.sender, null); // Clear last kill so it can't be arisen again
                 const { formatNumber } = require('../lib/functions');
-                await m.reply(`🌑 *ARISE BERHASIL!* 🌑\n\nBayangan dari *${lastKill.name}* telah bangkit dan bergabung dengan Shadow Army milikmu!\n🗡️ Tambahan Power: +${formatNumber(shadow.power)}\n\n_Cek profil kamu menggunakan .rpgprofile_`);
+                await m.reply(`🌑 *ARISE BERHASIL!* 🌑\n\nBayangan dari *${lastKill.name}* telah bangkit sebagai *[${rank}]* dan bergabung dengan Shadow Army milikmu!\n🗡️ Tambahan Power: +${formatNumber(shadow.power)}\n\n_Cek profil kamu menggunakan .rpgprofile_`);
             } else {
                 // Fail
                 if (lastKill.attempts > 0) {
