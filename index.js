@@ -77,9 +77,25 @@ async function main() {
             }
         });
         
-        // 6. Start WhatsApp connection
+        // 6. Start WhatsApp connections for all saved sessions
         console.log('\n📱 Menghubungkan ke WhatsApp...');
-        await startConnection(io);
+        const sessionsDir = config.paths.sessions;
+        if (fs.existsSync(sessionsDir)) {
+            const dirs = fs.readdirSync(sessionsDir, { withFileTypes: true })
+                .filter(dirent => dirent.isDirectory())
+                .map(dirent => dirent.name);
+            
+            if (dirs.length > 0) {
+                for (const sessionId of dirs) {
+                    await startConnection(io, sessionId);
+                }
+            } else {
+                // Default if empty
+                await startConnection(io, 'default');
+            }
+        } else {
+            await startConnection(io, 'default');
+        }
 
         // 7. Start scheduler (prayer reminders & personal reminders)
         startScheduler();

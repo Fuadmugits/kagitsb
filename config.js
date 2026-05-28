@@ -58,7 +58,7 @@ module.exports = {
         limit: 5,
     },
     paths: {
-        sessions: require('path').join(process.cwd(), 'storage', 'session'),
+        sessions: require('path').join(process.cwd(), 'storage', 'sessions'),
         temp: require('path').join(process.cwd(), 'storage', 'temp'),
         database: require('path').join(process.cwd(), 'storage', 'database.db'),
     }

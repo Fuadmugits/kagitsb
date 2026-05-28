@@ -20,7 +20,7 @@ function createWebServer(sock) {
     app.use('/api/auth', require('./api/auth'));
     app.use('/api/dashboard', require('./api/dashboard'));
     app.use('/api/users', require('./api/users'));
-    app.use('/api/bot', require('./api/bot')());
+    app.use('/api/bot', require('./api/bot')(io));
     app.use('/api/settings', require('./api/settings'));
 
     // Download database
