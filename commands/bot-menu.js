@@ -32,58 +32,61 @@ module.exports = [
                 games: '𝙶𝙰𝙼𝙴 𝙼𝙴𝙽𝚄', panel: '𝙿𝙰𝙽𝙴𝙻 𝙼𝙴𝙽𝚄', fun: '𝙵𝚄𝙽 𝙼𝙴𝙽𝚄',
                 social: '𝚂𝙾𝙲𝙸𝙰𝙻 𝙼𝙴𝙽𝚄', utility: '𝚄𝚃𝙸𝙻𝙸𝚃𝚈 𝙼𝙴𝙽𝚄',
                 random: '𝚁𝙰𝙽𝙳𝙾𝙼 𝙼𝙴𝙽𝚄', stalker: '𝚂𝚃𝙰𝙻𝙺𝙴𝚁 𝙼𝙴𝙽𝚄',
-                owner: '𝙾𝚆𝙽𝙴𝚁 𝙼𝙴𝙽𝚄', rpg: '𝚁𝙿𝙶 𝙼𝙴𝙽𝚄', other: '𝙾𝚃𝙷𝙴𝚁',
+                owner: '𝙾𝚆𝙽𝙴𝚁 𝙼𝙴𝙽𝚄', rpg: '𝚁𝙿𝙶 𝙼𝙴𝙽𝚄', judi: '𝙹𝚄𝙳𝙸 𝙼𝙴𝙽𝚄', other: '𝙾𝚃𝙷𝙴𝚁',
             };
 
 
 
-            let text = `╔═══ ❖ 𝚄𝚂𝙴𝚁 𝙸𝙽𝙵𝙾 ❖ ═══╗\n`;
-            text += `║ 👤 𝙽𝚊𝚖𝚊     : ${m.pushName}\n`;
-            text += `║ 🆔 𝙸𝙳       : @${m.sender.split('@')[0]}\n`;
-            text += `║ 💎 𝚄𝚜𝚎𝚛    : ${isPrem ? '𝙿𝚁𝙴𝙼𝙸𝚄𝙼' : '𝙵𝚁𝙴𝙴'}\n`;
-            text += `║ 📉 𝙻𝚒𝚖𝚒𝚝   : ${formatNumber(user.limit_count)}\n`;
-            text += `║ 💰 𝚄𝚊𝚗𝚐    : ${formatNumber(user.balance)}\n`;
-            text += `║ 🪙 𝚁𝙿𝙶 𝙲𝚘𝚒𝚗 : ${formatNumber(RPG.getCoin(m.sender))}\n`;
-            text += `╚═══════════════════════╝\n\n`;
+            let text = `ʜᴀɪ ᴋᴀᴋ 👋🏻, *${m.pushName}*\n\n`;
+            text += `◇──⊚ *≼ ᴍy ᴀʟʟ ᴍᴇɴᴜ ≽* ⊚──◇\n`;
+            text += `╭୧⍤⃝───────────┈◦•◦❥•◦\n`;
+            text += `│꒰⧭꒱ *𝙽𝚊𝚖𝚊:* ${m.pushName}\n`;
+            text += `│꒰⧭꒱ *𝙸𝙳:* @${m.sender.split('@')[0]}\n`;
+            text += `│꒰⧭꒱ *𝚂𝚝𝚊𝚝𝚞𝚜:* ${isPrem ? '𝙿𝚁𝙴𝙼𝙸𝚄𝙼 ✓' : '𝙵𝚁𝙴𝙴'}\n`;
+            text += `│꒰⧭꒱ *𝙻𝚒𝚖𝚒𝚝:* ${formatNumber(user.limit_count)} Ⓛ\n`;
+            text += `│꒰⧭꒱ *𝙱𝚊𝚕𝚊𝚗𝚌𝚎:* ${formatNumber(user.balance)}\n`;
+            text += `│꒰⧭꒱ *𝚁𝙿𝙶 𝙲𝚘𝚒𝚗:* ${formatNumber(RPG.getCoin(m.sender))}\n`;
+            text += `│꒰⧭꒱ *𝙾𝚠𝚗𝚎𝚛:* ${config.bot.ownerName}\n`;
+            text += `╰───···─────────⍥⃝⃝ ˒˒\n\n`;
 
-            text += `╔═══ ❖ 𝙱𝙾𝚃 𝙸𝙽𝙵𝙾 ❖ ═══╗\n`;
-            text += `║ 🤖 𝙽𝚊𝚖𝚊       : ${config.bot.name}\n`;
-            text += `║ ⚡ 𝙿𝚘𝚠𝚎𝚛𝚎𝚍    : @${sock.user?.id?.split(':')[0] || '0'}\n`;
-            text += `║ 👑 𝙾𝚠𝚗𝚎𝚛      : ${config.bot.ownerName}\n`;
-            text += `║ 🔧 𝙼𝚘𝚍𝚎       : ${config.bot.mode.charAt(0).toUpperCase() + config.bot.mode.slice(1)}\n`;
-            text += `║ ☕ 𝙿𝚛𝚎𝚏𝚒𝚡     :  *${prefix}*\n`;
-            text += `║ 🌟 𝙵𝚒𝚝𝚞𝚛 𝙿𝚛𝚎𝚖 : 🔸\n`;
-            text += `╚═══════════════════════╝\n\n`;
+            text += `╭──··───≼ ɪɴꜰᴏ ʙᴏᴛ ≽──⎈꙲⊶ \n`;
+            text += `│⎆ *𝙱𝚘𝚝 𝙽𝚊𝚖𝚎* : [ ${config.bot.name} ]\n`;
+            text += `│⎆ *𝙿𝚘𝚠𝚎𝚛𝚎𝚍* : [ @${sock.user?.id?.split(':')[0] || '0'} ]\n`;
+            text += `│⎆ *𝙼𝚘𝚍𝚎* : [ ${config.bot.mode} ]\n`;
+            text += `│⎆ *𝙿𝚛𝚎𝚏𝚒𝚡* : [ ${prefix} ]\n`;
+            text += `│⎆ *𝙳𝚊𝚝𝚎* : [ ${getDate()} ]\n`;
+            text += `│⎆ *𝚃𝚒𝚖𝚎* : [ ${getTime()} 𝚆𝙸𝙱 ]\n`;
+            text += `╰───···─────────⎈꙲⊶ \n`;
+            text += `◇───────────────────◇\n`;
+            text += `> *ʜᴀʟʟᴏ ɴᴀᴍᴀᴋᴜ ${config.bot.name} ᴀᴋᴜ ᴅɪ ꜱɪɴɪ ꜱɪᴀᴩ ᴍᴇᴍʙᴀɴᴛᴜ ᴋᴇʙᴜᴛᴜʜᴀɴᴍᴜ, ᴊɪᴋᴀ ʙᴜᴛᴜʜ ᴀᴩᴀ ᴀᴩᴀ ʟᴀɴɢꜱᴜɴɢ ᴛᴀɴyᴀᴋᴀɴ ᴋᴇᴩᴀᴅᴀᴋᴜ ᴛᴇʀɪᴍᴀᴋᴀꜱɪʜ✨*\n`;
+            text += `◇───────────────────◇\n\n`;
 
-            text += `╔═══ ❖ 𝙰𝙱𝙾𝚄𝚃 ❖ ═══╗\n`;
-            text += `║ 📅 𝚃𝚊𝚗𝚐𝚐𝚊𝚕 : ${getDate()}\n`;
-            text += `║ 📆 𝙷𝚊𝚛𝚒     : ${getDay()}\n`;
-            text += `║ ⏰ 𝙹𝚊𝚖      : ${getTime()} 𝚆𝙸𝙱\n`;
-            text += `╚═══════════════════╝\n`;
-
-            const order = ['bot','rpg','group','search','download','quotes','tools','ai','anime','games','social','utility','panel','fun','random','stalker','owner'];
+            const order = ['bot','rpg','group','search','download','quotes','tools','ai','anime','games','judi','social','utility','panel','fun','random','stalker','owner'];
+            const bulletSymbols = ['│✷│','│✠│','│✻│','│⦿│','│⊙│','│⧭│'];
+            
             for (const cat of order) {
                 if (!categories[cat] || categories[cat].length === 0) continue;
                 if (cat === 'owner' && !isOwner(m.sender)) continue;
-                text += `╔═══ ❖ ${catNames[cat] || cat.toUpperCase()} ❖ ═══╗\n`;
+                text += `╭──···─≼ _*${catNames[cat] || cat.toUpperCase()}*_ ≽───⊚\n`;
                 for (const cmd of categories[cat]) {
-                    const prem = cmd.premiumOnly ? ' 🔸' : '';
-                    const own = cmd.ownerOnly ? ' 👑' : '';
+                    const prem = cmd.premiumOnly ? '(Ⓟ)' : '';
+                    const own = cmd.ownerOnly ? '(👑)' : '';
                     const usage = cmd.usage ? ` ${cmd.usage}` : '';
-                    text += `║ ♧ ${prefix}${cmd.name}${usage}${prem}${own}\n`;
+                    const randomBullet = bulletSymbols[Math.floor(Math.random() * bulletSymbols.length)];
+                    text += `${randomBullet} 〔 _${prefix}${cmd.name}${usage}_ ${prem}${own}\n`;
                 }
-                text += `╚═══════════════════════╝\n`;
+                text += `╰───···─────❈⊶\n\n`;
             }
             
             const fs = require('fs');
             const path = require('path');
-            const imagePath = path.join(__dirname, '..', 'menu.jpg');
+            const imagePath = path.join(__dirname, '..', 'haimiya.jpeg');
             
             try {
                 if (fs.existsSync(imagePath)) {
                     await sock.sendMessage(m.chat, { image: fs.readFileSync(imagePath), caption: text, mentions: [m.sender] }, { quoted: m.raw });
                 } else {
-                    // Fallback to text if menu.jpg is not found
+                    // Fallback to text if haimiya.jpeg is not found
                     await sock.sendMessage(m.chat, { text, mentions: [m.sender] }, { quoted: m.raw });
                 }
             } catch (e) {

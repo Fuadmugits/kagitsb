@@ -54,30 +54,30 @@ async function getDynamicQuestion(type, fallback) {
 
 module.exports = [
     {
-        name: 'slot', category: 'games', desc: 'Main slot machine',
-        async execute({ m }) {
+        name: 'slot', category: 'judi', desc: 'Main slot machine', usage: '(nominal)',
+        async execute({ m, args }) {
             const cd = checkCooldown(m.sender, 'slot', 10);
             if (cd > 0) return m.reply(`⏳ Sabar! Tunggu ${cd} detik lagi untuk bermain slot.`);
             
+            const user = Users.getOrCreate(m.sender, m.pushName);
+            let bet = args[0]?.toLowerCase() === 'all' ? user.balance : parseInt(args[0]) || 100;
+            if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
+            if (bet < 100) return m.reply('❌ Minimal bet 100!');
+            
             const { calculateTotalStats } = require('../lib/rpg');
             const stats = calculateTotalStats(m.sender);
-            const luckBonus = Math.min(0.2, (stats.luck || 0) * 0.00001); // Max 20% forced win from luck
+            const luckBonus = Math.min(0.05, (stats.luck || 0) * 0.000005); // Nerfed luck
 
-            const user = Users.getOrCreate(m.sender, m.pushName);
-            const emojis = ['🍒','🍋','🍊','🍇','💎','7️⃣','🔔','⭐'];
+            const emojis = ['🍒','🍋','🍊','🍇','💎','7️⃣','🔔','⭐','🍉','🍍','🥥','🍓','🥝','🍅','🥑','🌽'];
             let s = [pickRandom(emojis), pickRandom(emojis), pickRandom(emojis)];
             
-            // Re-roll mechanics using luck
             if (Math.random() < luckBonus && s[0] !== s[1] && s[1] !== s[2]) {
                 const winEmoji = pickRandom(emojis);
-                s = [winEmoji, winEmoji, winEmoji]; // force jackpot
-            } else if (Math.random() < luckBonus * 2 && s[0] !== s[1] && s[1] !== s[2]) {
-                s[2] = s[1]; // force minor win
+                s = [winEmoji, winEmoji, winEmoji];
             }
 
             let win = 0;
-            if (s[0]===s[1] && s[1]===s[2]) { win = s[0]==='💎' ? 5000 : s[0]==='7️⃣' ? 3000 : 1000; }
-            else if (s[0]===s[1] || s[1]===s[2] || s[0]===s[2]) { win = 250; }
+            if (s[0]===s[1] && s[1]===s[2]) { win = bet * (s[0]==='💎' ? 50 : s[0]==='7️⃣' ? 30 : 10); }
 
             if (win > 0) { 
                 const { Settings } = require('../database');
@@ -88,12 +88,14 @@ module.exports = [
                 Transactions.create(m.sender, 'game_win', win, 'Slot machine'); 
                 await m.reply(`🎰 *SLOT MACHINE*\n\n┃ ${s.join(' ┃ ')} ┃\n\n🎉 MENANG! +${formatNumber(win)} balance! ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`);
             } else {
-                await m.reply(`🎰 *SLOT MACHINE*\n\n┃ ${s.join(' ┃ ')} ┃\n\n😢 Coba lagi!`);
+                Users.addBalance(m.sender, -bet);
+                Transactions.create(m.sender, 'game_lose', -bet, 'Slot machine'); 
+                await m.reply(`🎰 *SLOT MACHINE*\n\n┃ ${s.join(' ┃ ')} ┃\n\n😢 KALAH! -${formatNumber(bet)} balance.`);
             }
         }
     },
     {
-        name: 'casino', category: 'casino', desc: 'Main casino (x1.5/x3/x5)', usage: '(nominal)',
+        name: 'casino', category: 'judi', desc: 'Main casino (x1.5/x3/x5)', usage: '(nominal)',
         async execute({ m, args }) {
             const cd = checkCooldown(m.sender, 'casino', 10);
             if (cd > 0) return m.reply(`⏳ Sabar! Tunggu ${cd} detik lagi untuk bermain casino.`);
@@ -107,10 +109,10 @@ module.exports = [
             const stats = calculateTotalStats(m.sender);
             const userLuck = stats.luck || 0;
 
-            // Base chances (Nerfed)
-            let superJackpotChance = 0.0001; // (0.01%)
-            let jackpotChance = 0.0005; // (0.05%)
-            let winChance = 0.10; // (10%)
+            // Base chances (Nerfed severely)
+            let superJackpotChance = 0.00002; // (0.002%)
+            let jackpotChance = 0.0001; // (0.01%)
+            let winChance = 0.04; // (4%)
 
             // Luck bonus scaling (Nerfed heavily to prevent luck exploit)
             const superBonus = Math.min(0.001, userLuck * 0.00000005);
@@ -383,8 +385,13 @@ module.exports = [
         }
     },
     {
-        name: 'blackjack', aliases: ['bj'], category: 'games', desc: 'Main Blackjack',
-        async execute({ m }) {
+        name: 'blackjack', aliases: ['bj'], category: 'judi', desc: 'Main Blackjack', usage: '(nominal)',
+        async execute({ m, args }) {
+            const user = Users.getOrCreate(m.sender, m.pushName);
+            const bet = args[0]?.toLowerCase() === 'all' ? user.balance : parseInt(args[0]) || 100;
+            if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
+            if (bet < 100) return m.reply('❌ Minimal bet 100!');
+
             const cards = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
             const suits = ['♠️','♥️','♦️','♣️'];
             const draw = () => `${pickRandom(cards)}${pickRandom(suits)}`;
@@ -392,26 +399,54 @@ module.exports = [
             const p = [draw(), draw()]; const d = [draw(), draw()];
             const pVal = p.reduce((a,c) => a+val(c), 0);
             const dVal = d.reduce((a,c) => a+val(c), 0);
+            
             let result;
-            if (pVal === 21) result = '🎉 BLACKJACK! Kamu MENANG!';
+            let win = false;
+            let seri = false;
+            if (pVal === 21) { result = '🎉 BLACKJACK! Kamu MENANG!'; win = true; }
             else if (pVal > 21) result = '💥 BUST! Kamu kalah!';
-            else if (dVal > 21 || pVal > dVal) result = '🎉 Kamu MENANG!';
-            else if (pVal === dVal) result = '🤝 SERI!';
+            else if (dVal > 21 || pVal > dVal) { result = '🎉 Kamu MENANG!'; win = true; }
+            else if (pVal === dVal) { result = '🤝 SERI!'; seri = true; }
             else result = '😢 Dealer menang!';
-            await m.reply(`🃏 *BLACKJACK*\n\n👤 Kamu: ${p.join(' ')} (${pVal})\n🤖 Dealer: ${d.join(' ')} (${dVal})\n\n${result}`);
+            
+            // Nerf: 70% chance to reverse win to lose (dealer cheats)
+            if (win && Math.random() < 0.7) {
+                result = '😢 Dealer bermain curang dan MENANG!';
+                win = false;
+            }
+
+            if (win) {
+                const winAmount = bet * 2;
+                Users.addBalance(m.sender, winAmount);
+                await m.reply(`🃏 *BLACKJACK*\n\n👤 Kamu: ${p.join(' ')} (${pVal})\n🤖 Dealer: ${d.join(' ')} (${dVal})\n\n${result}\n💰 +${formatNumber(winAmount)} balance`);
+            } else if (seri) {
+                await m.reply(`🃏 *BLACKJACK*\n\n👤 Kamu: ${p.join(' ')} (${pVal})\n🤖 Dealer: ${d.join(' ')} (${dVal})\n\n${result}\nBalance dikembalikan.`);
+            } else {
+                Users.addBalance(m.sender, -bet);
+                await m.reply(`🃏 *BLACKJACK*\n\n👤 Kamu: ${p.join(' ')} (${pVal})\n🤖 Dealer: ${d.join(' ')} (${dVal})\n\n${result}\n💸 -${formatNumber(bet)} balance`);
+            }
         }
     },
-    {
-        name: 'samgong', category: 'games', desc: 'Main Samgong', usage: '(nominal)',
+        name: 'samgong', category: 'judi', desc: 'Main Samgong', usage: '(nominal)',
         async execute({ m, args }) {
             const user = Users.getOrCreate(m.sender, m.pushName);
             const bet = args[0]?.toLowerCase() === 'all' ? user.balance : parseInt(args[0]) || 100;
-            if (user.balance < bet) return m.reply('❌ Balance tidak cukup!');
+            if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
+            if (bet < 100) return m.reply('❌ Minimal bet 100!');
+            
             const draw3 = () => [randomInt(1,10),randomInt(1,10),randomInt(1,10)];
             const val = cards => cards.reduce((a,b)=>a+b,0) % 10;
             const p = draw3(); const d = draw3();
             const pv = val(p); const dv = val(d);
-            const win = pv > dv;
+            
+            let win = pv > dv;
+            // Nerf: 70% chance bot uses cheat if you win
+            let msgCheat = '';
+            if (win && Math.random() < 0.7) {
+                win = false;
+                msgCheat = '\n(Bandar menukar kartu di detik terakhir!)';
+            }
+
             if (win) { 
                 let reward = bet;
                 const { Settings } = require('../database');
@@ -419,10 +454,75 @@ module.exports = [
                 const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
                 if (multiplier > 1) reward *= multiplier;
                 Users.addBalance(m.sender, reward); 
-                await m.reply(`🎴 *SAMGONG*\n\n👤 Kamu: [${p.join(',')}] = ${pv}\n🤖 Bot: [${d.join(',')}] = ${dv}\n\n🎉 MENANG! +${formatNumber(reward)} ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`);
+                await m.reply(`🎴 *SAMGONG*\n\n👤 Kamu: [${p.join(',')}] = ${pv}\n🤖 Bandar: [${d.join(',')}] = ${dv}\n\n🎉 MENANG! +${formatNumber(reward)} ${multiplier > 1 ? `(Admin Abuse x${multiplier}! 🔥)` : ''}`);
             } else { 
                 Users.addBalance(m.sender, -bet); 
-                await m.reply(`🎴 *SAMGONG*\n\n👤 Kamu: [${p.join(',')}] = ${pv}\n🤖 Bot: [${d.join(',')}] = ${dv}\n\n😢 KALAH! -${formatNumber(bet)}`);
+                await m.reply(`🎴 *SAMGONG*\n\n👤 Kamu: [${p.join(',')}] = ${pv}\n🤖 Bandar: [${d.join(',')}] = ${dv}${msgCheat}\n\n😢 KALAH! -${formatNumber(bet)}`);
+            }
+        }
+    },
+    {
+        name: 'dadu', category: 'judi', desc: 'Tebak angka dadu (1-6)', usage: '(1-6) (nominal)',
+        async execute({ m, args }) {
+            const user = Users.getOrCreate(m.sender, m.pushName);
+            const tebakan = parseInt(args[0]);
+            const bet = args[1]?.toLowerCase() === 'all' ? user.balance : parseInt(args[1]) || 100;
+            
+            if (!tebakan || tebakan < 1 || tebakan > 6) return m.reply('❌ Format salah! Pilih angka dadu 1-6.\nContoh: .dadu 4 1000');
+            if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
+            if (bet < 100) return m.reply('❌ Minimal bet 100!');
+
+            let hasil = randomInt(1, 6);
+            
+            // Nerf: if user guesses correctly, 80% chance to reroll dadu to a wrong number
+            if (tebakan === hasil && Math.random() < 0.8) {
+                let newHasil = randomInt(1, 6);
+                while (newHasil === tebakan) newHasil = randomInt(1, 6);
+                hasil = newHasil;
+            }
+
+            if (tebakan === hasil) {
+                const winAmount = bet * 4; // 4x reward for hitting 1/6 chance
+                Users.addBalance(m.sender, winAmount);
+                await m.reply(`🎲 *TEBAK DADU*\n\nDadu dilempar dan hasilnya... *${hasil}*!\n🎉 Tebakanmu BENAR! +${formatNumber(winAmount)} balance`);
+            } else {
+                Users.addBalance(m.sender, -bet);
+                await m.reply(`🎲 *TEBAK DADU*\n\nDadu dilempar dan hasilnya... *${hasil}*!\n😢 Tebakanmu SALAH! -${formatNumber(bet)} balance`);
+            }
+        }
+    },
+    {
+        name: 'roulette', category: 'judi', desc: 'Main roulette casino (merah/hitam/hijau)', usage: '(warna) (nominal)',
+        async execute({ m, args }) {
+            const user = Users.getOrCreate(m.sender, m.pushName);
+            const warna = args[0]?.toLowerCase();
+            const bet = args[1]?.toLowerCase() === 'all' ? user.balance : parseInt(args[1]) || 100;
+            
+            if (!['merah', 'hitam', 'hijau'].includes(warna)) return m.reply('❌ Format salah! Pilih warna: merah, hitam, atau hijau.\nContoh: .roulette merah 1000');
+            if (user.balance < bet) return m.reply(`❌ Balance tidak cukup! Kamu punya ${formatNumber(user.balance)}`);
+            if (bet < 100) return m.reply('❌ Minimal bet 100!');
+
+            // Rigged roulette wheel
+            let hasil;
+            let roll = Math.random();
+            // Normal chance: Hijau 2%, Merah 49%, Hitam 49%
+            // We rig it against the user's choice
+            if (warna === 'hijau') {
+                hasil = roll < 0.005 ? 'hijau' : (roll < 0.5 ? 'merah' : 'hitam'); // 0.5% chance to hit hijau if picked
+            } else if (warna === 'merah') {
+                hasil = roll < 0.15 ? 'merah' : (roll < 0.95 ? 'hitam' : 'hijau'); // only 15% chance to hit merah if picked
+            } else {
+                hasil = roll < 0.15 ? 'hitam' : (roll < 0.95 ? 'merah' : 'hijau'); // only 15% chance to hit hitam if picked
+            }
+
+            if (warna === hasil) {
+                const multiplier = (warna === 'hijau') ? 20 : 2; 
+                const winAmount = bet * multiplier;
+                Users.addBalance(m.sender, winAmount);
+                await m.reply(`🎡 *ROULETTE*\n\nBola berputar dan berhenti di... *${hasil.toUpperCase()}*!\n🎉 MENANG! +${formatNumber(winAmount)} balance`);
+            } else {
+                Users.addBalance(m.sender, -bet);
+                await m.reply(`🎡 *ROULETTE*\n\nBola berputar dan berhenti di... *${hasil.toUpperCase()}*!\n😢 KALAH! -${formatNumber(bet)} balance`);
             }
         }
     },
