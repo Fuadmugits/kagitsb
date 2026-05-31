@@ -427,6 +427,7 @@ module.exports = [
             }
         }
     },
+    {
         name: 'samgong', category: 'judi', desc: 'Main Samgong', usage: '(nominal)',
         async execute({ m, args }) {
             const user = Users.getOrCreate(m.sender, m.pushName);
