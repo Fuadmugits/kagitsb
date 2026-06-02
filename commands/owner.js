@@ -534,6 +534,44 @@ module.exports = [
         }
     },
     {
+        name: 'togglegame', aliases: ['togglegames'], category: 'owner', desc: 'Matikan/nyalakan fitur game secara global', usage: 'on/off', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const action = args[0]?.toLowerCase();
+            if (action === 'on') {
+                const { Settings } = require('../database');
+                Settings.set('global_game_status', 'true');
+                await m.reply('✅ *Fitur Game Global Diaktifkan!*\nSeluruh game kini bisa dimainkan kembali.');
+            } else if (action === 'off') {
+                const { Settings } = require('../database');
+                Settings.set('global_game_status', 'false');
+                await m.reply('❌ *Fitur Game Global Dinonaktifkan!*\nPlayer tidak akan bisa memainkan game apapun.');
+            } else {
+                const { Settings } = require('../database');
+                const current = Settings.get('global_game_status') === 'false' ? 'OFF' : 'ON';
+                return m.reply(`🔰 Status Global Game: *${current}*\n\nGunakan "on" atau "off"!\nContoh: .togglegame off`);
+            }
+        }
+    },
+    {
+        name: 'togglejudi', category: 'owner', desc: 'Matikan/nyalakan fitur judi secara global', usage: 'on/off', ownerOnly: true, noLimit: true,
+        async execute({ m, args }) {
+            const action = args[0]?.toLowerCase();
+            if (action === 'on') {
+                const { Settings } = require('../database');
+                Settings.set('global_judi_status', 'true');
+                await m.reply('✅ *Fitur Judi Global Diaktifkan!*\nSeluruh permainan judi kini bisa dimainkan kembali.');
+            } else if (action === 'off') {
+                const { Settings } = require('../database');
+                Settings.set('global_judi_status', 'false');
+                await m.reply('❌ *Fitur Judi Global Dinonaktifkan!*\nPlayer tidak akan bisa memainkan game kategori judi apapun.');
+            } else {
+                const { Settings } = require('../database');
+                const current = Settings.get('global_judi_status') === 'false' ? 'OFF' : 'ON';
+                return m.reply(`🔰 Status Global Judi: *${current}*\n\nGunakan "on" atau "off"!\nContoh: .togglejudi off`);
+            }
+        }
+    },
+    {
         name: 'addcode', category: 'owner', desc: 'Buat kode redeem RPG', usage: '<code> <koin> <balance> <limit> [max_uses]', ownerOnly: true, noLimit: true,
         async execute({ m, args }) {
             if (args.length < 4) return m.reply('❌ Format: .addcode <code> <koin> <balance> <limit> [max_uses]\nContoh: .addcode MABAR 1000 50000 10 50');

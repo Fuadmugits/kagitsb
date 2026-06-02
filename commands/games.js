@@ -109,10 +109,10 @@ module.exports = [
             const stats = calculateTotalStats(m.sender);
             const userLuck = stats.luck || 0;
 
-            // Base chances (Nerfed severely)
-            let superJackpotChance = 0.00002; // (0.002%)
-            let jackpotChance = 0.0001; // (0.01%)
-            let winChance = 0.04; // (4%)
+            // Base chances (Buffed)
+            let superJackpotChance = 0.0001; // (0.01%)
+            let jackpotChance = 0.0005; // (0.05%)
+            let winChance = 0.18; // (18%)
 
             // Luck bonus scaling (Nerfed heavily to prevent luck exploit)
             const superBonus = Math.min(0.001, userLuck * 0.00000005);
@@ -441,12 +441,7 @@ module.exports = [
             const pv = val(p); const dv = val(d);
             
             let win = pv > dv;
-            // Nerf: 70% chance bot uses cheat if you win
             let msgCheat = '';
-            if (win && Math.random() < 0.7) {
-                win = false;
-                msgCheat = '\n(Bandar menukar kartu di detik terakhir!)';
-            }
 
             if (win) { 
                 let reward = bet;
