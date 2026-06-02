@@ -444,7 +444,7 @@ module.exports = [
             let msgCheat = '';
 
             if (win) { 
-                let reward = bet;
+                let reward = bet * 2;
                 const { Settings } = require('../database');
                 const abuseVal = Settings.get('adminabuse_' + m.chat);
                 const multiplier = parseInt(abuseVal) || (abuseVal === 'true' ? 2 : 1);
