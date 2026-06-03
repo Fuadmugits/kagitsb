@@ -264,13 +264,25 @@ module.exports = [
                     const buffer = await (m.quoted?.isImage ? m.quoted : m).download();
                     const sharp = require('sharp');
                     const meta = await sharp(buffer).metadata();
+                    
+                    // Optimalisasi resolusi & filter untuk melawan kompresi WhatsApp Status
                     const upscaled = await sharp(buffer)
-                        .resize(meta.width * 2, meta.height * 2, { kernel: 'lanczos3' })
-                        .sharpen()
+                        .resize({
+                            width: meta.width * 2, 
+                            height: meta.height * 2,
+                            fit: 'inside',
+                            withoutEnlargement: false,
+                            kernel: 'lanczos3'
+                        })
+                        .normalize() // Perbaiki kontras
+                        .modulate({ saturation: 1.2, brightness: 1.05 }) // Warna lebih hidup agar tidak pudar
+                        .sharpen({ sigma: 2.0, m1: 1.5, m2: 25, x1: 2, y2: 10, y3: 20 }) // Penajaman ekstrem
+                        .jpeg({ quality: 100, chromaSubsampling: '4:4:4' }) // Kualitas max & cegah warna bleeding
                         .toBuffer();
+                        
                     await sock.sendMessage(m.chat, {
                         image: upscaled,
-                        caption: `✅ *HD Upscale*\n📐 ${meta.width}x${meta.height} → ${meta.width * 2}x${meta.height * 2}`
+                        caption: `✅ *HD Upscale Pro*\n📐 Resolusi ditingkatkan & dioptimalkan untuk Status WA`
                     }, { quoted: m.raw });
                     await m.react('✅');
                 } catch (e) { await m.reply('❌ Error: ' + e.message); }
@@ -294,15 +306,16 @@ module.exports = [
                     let success = false;
                     try {
                         await new Promise((resolve, reject) => {
-                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=bicubic,unsharp=3:3:0.5:3:3:0.0" -c:v libx264 -preset ultrafast -crf 24 -c:a aac -b:a 128k "${outputPath}" -y`, (err) => {
+                            // Gunakan CRF 18 (kualitas sangat tinggi) dan filter unsharp yang lebih kuat
+                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0,eq=contrast=1.1:saturation=1.2" -c:v libx264 -preset veryfast -crf 18 -c:a aac -b:a 192k "${outputPath}" -y`, (err) => {
                                 if (err) reject(err); else resolve();
                             });
                         });
                         success = true;
                     } catch (err) {
-                        // Fallback: try without audio in case the video is silent/has no audio stream
+                        // Fallback: try without audio
                         await new Promise((resolve, reject) => {
-                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=bicubic,unsharp=3:3:0.5:3:3:0.0" -c:v libx264 -preset ultrafast -crf 24 -an "${outputPath}" -y`, (err) => {
+                            exec(`"${ffmpegPath}" -i "${inputPath}" -vf "scale=min(iw*2\\,1280):-2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0,eq=contrast=1.1:saturation=1.2" -c:v libx264 -preset veryfast -crf 18 -an "${outputPath}" -y`, (err) => {
                                 if (err) reject(err); else resolve();
                             });
                         });
