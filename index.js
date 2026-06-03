@@ -38,7 +38,7 @@ async function main() {
         // 3. Start web server
         const { server, io } = createWebServer(null);
         
-        server.listen(config.web.port, () => {
+        server.listen(config.web.port, '0.0.0.0', () => {
             console.log(`🌐 Dashboard: http://localhost:${config.web.port}`);
             console.log(`🌐 Customer:  http://localhost:${config.web.port}/customer`);
             console.log(`🌐 Login:     http://localhost:${config.web.port}/login`);
