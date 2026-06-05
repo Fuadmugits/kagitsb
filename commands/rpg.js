@@ -227,6 +227,8 @@ module.exports = [
             if (uniqueSkillsList.includes('Meteor')) dmgMult += 0.25;
             if (uniqueSkillsList.includes('Giant Slayer') && monster.powerReq > 1000000) dmgMult += 0.30;
             if (uniqueSkillsList.includes('Dragon Slayer') && (monster.name.toLowerCase().includes('dragon') || monster.powerReq > 1000000)) dmgMult += 0.20;
+            if (uniqueSkillsList.includes('Venuzdonoa')) dmgMult += 10.0;
+            if (uniqueSkillsList.includes('Azathoth')) dmgMult += 5.0;
             
             let isBerserk = false;
             if (uniqueSkillsList.includes('Berserk') && Math.random() < 0.20) {
@@ -244,8 +246,14 @@ module.exports = [
             if (uniqueSkillsList.includes('Iron Skin')) {
                 actualMonsterPower = Math.floor(actualMonsterPower * 0.70);
             }
+            if (uniqueSkillsList.includes('Chaotic Eyes')) {
+                actualMonsterPower = Math.floor(actualMonsterPower * 0.10);
+            }
 
             if (effectivePower < actualMonsterPower) {
+                if (uniqueSkillsList.includes('Universal Shapeshift')) {
+                    return m.reply(`💨 *UNIVERSAL SHAPESHIFT!* Kamu mengubah wujud dan melarikan diri tanpa terdeteksi oleh ${monster.name}!`);
+                }
                 if (uniqueSkillsList.includes('Shadow Step') && Math.random() < 0.20) {
                     return m.reply(`💨 *SHADOW STEP!* Kamu nyaris kalah melawan ${monster.name}, tapi berhasil menghilang ke dalam bayangan dan melarikan diri tanpa luka!`);
                 }
@@ -260,7 +268,10 @@ module.exports = [
                 : `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
             
             // Check drops with luck factor
-            const dropChance = monster.dropChance * (1 + (stats.luck / 200)); // Every 200 luck doubles drop chance
+            let dropChance = monster.dropChance * (1 + (stats.luck / 200)); // Every 200 luck doubles drop chance
+            if (uniqueSkillsList.includes('Predator')) {
+                dropChance *= 3.0;
+            }
             if (Math.random() < dropChance) {
                 const dropType = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
                 const item = generateItem(dropType, monster.class);
@@ -292,6 +303,10 @@ module.exports = [
                 expGained = Math.floor(expGained * 1.30);
                 koinGained = Math.floor(koinGained * 1.30);
             }
+            if (uniqueSkillsList.includes('Egil Grone Angdroa')) {
+                expGained = Math.floor(expGained * 5.0);
+                koinGained = Math.floor(koinGained * 5.0);
+            }
             if (uniqueSkillsList.includes('War Cry')) {
                 expGained = Math.floor(expGained * 1.20);
             }
@@ -319,6 +334,14 @@ module.exports = [
             if (uniqueSkillsList.includes('Vampiric')) {
                 RPG.addHp(m.sender, 50);
                 skillMsgs.push(`🦇 *Vampiric Aktif (+50 HP)*`);
+            }
+            if (uniqueSkillsList.includes('Beelzebuth')) {
+                const u = Users.get(m.sender);
+                const maxHp = 1000 + ((u ? u.level : 1) * 50);
+                if (userRpg.hp < maxHp) {
+                    RPG.setHp(m.sender, maxHp);
+                    skillMsgs.push(`🌌 *Beelzebuth Aktif (Menyerap jiwa musuh, HP Pulih Sepenuhnya!)*`);
+                }
             }
             
             // Greed skill bonus (+2% coins per level)
@@ -770,7 +793,9 @@ module.exports = [
                 'Ninja': { next: 'Shadowblade', req: 100, cost: 2000000 },
                 'Mage': { next: 'Warlock', req: 50, cost: 500000 },
                 'Warlock': { next: 'Archmage', req: 100, cost: 2000000 },
-                'Necromancer': { next: 'Shadow Monarch', req: 100, cost: 5000000 }
+                'Necromancer': { next: 'Shadow Monarch', req: 100, cost: 5000000 },
+                'King Of Destruction': { next: 'Anos Voldigoad', req: 100, cost: 5000000 },
+                'Slime': { next: 'Rimuru Tempest', req: 100, cost: 5000000 }
             };
             
             if (!evoMap[role]) {

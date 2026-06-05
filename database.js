@@ -867,6 +867,10 @@ const RPG = {
                         UNIQUE_SKILLS = ['Dragon Slayer', 'Mana Shield', 'Elemental Burst', 'Meteor', 'Time Warp'];
                     } else if (role.includes('Necromancer') || role.includes('Shadow Monarch')) {
                         UNIQUE_SKILLS = ['Arise', 'Soul Reap', 'Shadow Extraction', 'Legion Commander', 'Death Aura'];
+                    } else if (role.includes('King of Destruction') || role.includes('King Of Destruction') || role.includes('Anos Voldigoad')) {
+                        UNIQUE_SKILLS = ['Chaotic Eyes', 'Venuzdonoa', 'Egil Grone Angdroa'];
+                    } else if (role.includes('Slime') || role.includes('Rimuru Tempest')) {
+                        UNIQUE_SKILLS = ['Predator', 'Beelzebuth', 'Azathoth', 'Universal Shapeshift'];
                     }
                     
                     if (UNIQUE_SKILLS.length > 0) {

@@ -158,16 +158,23 @@ module.exports = [
     {
         name: 'setrole', category: 'rpg', desc: 'Pilih role RPG (Warrior, Tank, Assassin, Mage)', usage: '<role>',
         async execute({ m, args }) {
-            const role = args[0]?.toLowerCase();
-            const validRoles = ['warrior', 'tank', 'assassin', 'mage'];
+            const role = args.join(' ')?.toLowerCase();
+            const validRoles = ['warrior', 'tank', 'assassin', 'mage', 'king of destruction', 'slime'];
             
             if (!role || !validRoles.includes(role)) {
                 return m.reply(`❌ Silakan pilih role yang tersedia:\n\n` +
                 `🗡️ *Warrior*: +20% Power, -10% Luck\n` +
                 `🛡️ *Tank*: +30% Defense, -10% Power\n` +
                 `🥷 *Assassin*: +30% Luck, +10% Power, -20% Defense\n` +
-                `🧙 *Mage*: +15% Power, +15% Luck, -20% Defense\n\n` +
+                `🧙 *Mage*: +15% Power, +15% Luck, -20% Defense\n` +
+                `👑 *(Owner Only)* *King of Destruction*: Extreme Power, -50% Defense\n` +
+                `💧 *(Owner Only)* *Slime*: Extreme Luck, Balanced Stats\n\n` +
                 `Contoh: .setrole warrior`);
+            }
+            
+            const { isOwner } = require('../lib/functions');
+            if (['king of destruction', 'slime'].includes(role) && !isOwner(m.sender)) {
+                return m.reply('❌ Role ini eksklusif hanya untuk Owner Bot!');
             }
             
             const userRpg = RPG.getUser(m.sender);
@@ -181,7 +188,7 @@ module.exports = [
                 RPG.addCoin(m.sender, -cost);
             }
             
-            const newRole = role.charAt(0).toUpperCase() + role.slice(1);
+            const newRole = role.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             RPG.setRole(m.sender, newRole);
             await m.reply(`✅ Berhasil menjadi *${newRole}*!\nStatistikmu telah disesuaikan dengan role baru.`);
         }
