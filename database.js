@@ -894,6 +894,46 @@ const RPG = {
     setRole(jid, role) {
         run('UPDATE rpg_users SET rpg_role = ? WHERE jid = ?', [role, jid]);
     },
+    syncSkills(jid, role, level) {
+        // Determine the skill pool for this role
+        let UNIQUE_SKILLS = [];
+        if (role.includes('Warrior') || role.includes('Fighter') || role.includes('Gladiator')) {
+            UNIQUE_SKILLS = ['Vampiric', 'Berserk', 'Giant Slayer', 'War Cry', 'Heavy Strike'];
+        } else if (role.includes('Tank') || role.includes('Paladin') || role.includes('Guardian')) {
+            UNIQUE_SKILLS = ['Iron Skin', 'Guardian', 'Reflect', 'Taunt', 'Holy Shield'];
+        } else if (role.includes('Assassin') || role.includes('Ninja') || role.includes('Shadowblade')) {
+            UNIQUE_SKILLS = ['Assassin Eye', 'Lethal Strike', 'Shadow Step', 'Poison Blade', 'Smoke Bomb'];
+        } else if (role.includes('Mage') || role.includes('Warlock') || role.includes('Archmage')) {
+            UNIQUE_SKILLS = ['Dragon Slayer', 'Mana Shield', 'Elemental Burst', 'Meteor', 'Time Warp'];
+        } else if (role.includes('Necromancer') || role.includes('Shadow Monarch')) {
+            UNIQUE_SKILLS = ['Arise', 'Soul Reap', 'Shadow Extraction', 'Legion Commander', 'Death Aura'];
+        } else if (role.includes('King of Destruction') || role.includes('King Of Destruction') || role.includes('Anos Voldigoad')) {
+            UNIQUE_SKILLS = ['Chaotic Eyes', 'Venuzdonoa', 'Egil Grone Angdroa'];
+        } else if (role.includes('Slime') || role.includes('Rimuru Tempest')) {
+            UNIQUE_SKILLS = ['Predator', 'Beelzebuth', 'Azathoth', 'Universal Shapeshift'];
+        }
+
+        // How many skills this user is entitled to (1 per 10 levels)
+        const skillSlots = Math.floor(level / 10);
+        const numSkills = Math.min(skillSlots, UNIQUE_SKILLS.length);
+
+        // Randomly pick skills from the pool
+        let newSkills = [];
+        if (numSkills > 0 && UNIQUE_SKILLS.length > 0) {
+            const shuffled = [...UNIQUE_SKILLS].sort(() => Math.random() - 0.5);
+            newSkills = shuffled.slice(0, numSkills);
+        }
+
+        // Overwrite unique_skills
+        run('UPDATE rpg_users SET unique_skills = ? WHERE jid = ?', [JSON.stringify(newSkills), jid]);
+
+        // Clear shadows if switching away from Necromancer/Shadow Monarch
+        if (!role.includes('Necromancer') && !role.includes('Shadow Monarch')) {
+            run('UPDATE rpg_users SET shadows = ? WHERE jid = ?', ['[]', jid]);
+        }
+
+        return newSkills;
+    },
     setLevel(jid, level) {
         run('UPDATE rpg_users SET rpg_level = ? WHERE jid = ?', [level, jid]);
     },

@@ -190,7 +190,17 @@ module.exports = [
             
             const newRole = role.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             RPG.setRole(m.sender, newRole);
-            await m.reply(`✅ Berhasil menjadi *${newRole}*!\nStatistikmu telah disesuaikan dengan role baru.`);
+            const newSkills = RPG.syncSkills(m.sender, newRole, userRpg.rpg_level || 1);
+            
+            let replyText = `✅ Berhasil menjadi *${newRole}*!\n`;
+            replyText += `🔄 Semua skill lama telah direset.\n`;
+            if (newSkills.length > 0) {
+                replyText += `🔮 *Skill Baru:* ${newSkills.join(', ')}\n`;
+            } else {
+                replyText += `📌 Skill baru akan terbuka setiap naik 10 level RPG.\n`;
+            }
+            replyText += `\n_Statistikmu telah disesuaikan dengan role baru._`;
+            await m.reply(replyText);
         }
     },
     {

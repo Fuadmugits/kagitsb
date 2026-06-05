@@ -899,5 +899,26 @@ module.exports = [
                 await m.reply(`❌ @${jid.split('@')[0]} tidak memiliki skill tersebut!`, { mentions: [jid] });
             }
         }
+    },
+    {
+        name: 'addaura', aliases: ['giveaura', 'giveatitle'], category: 'owner', desc: 'Berikan Aura/Gelar RPG ke user', usage: '(@tag/nomor) (ID Aura)', ownerOnly: true, noLimit: true,
+        async execute({ sock, m, args }) {
+            const jid = resolveJid(m, args, 0);
+            let auraId = (m.quoted?.sender ? args[0] : args[1])?.toUpperCase();
+            if (!jid || !auraId) return m.reply('❌ Format: .addaura @tag T181\n\nContoh:\n• .addaura @user T91\n• .addaura 628xxx T100\n\n_Ketik .rpgaurainfo <id> untuk lihat detail aura._');
+            
+            const { RPG_TITLES } = require('../lib/titles');
+            const aura = RPG_TITLES.find(t => t.id === auraId);
+            if (!aura) return m.reply(`❌ Aura dengan ID *${auraId}* tidak ditemukan!\n\n_ID Aura berformat T1, T2, ... T200._`);
+            
+            const { RPG } = require('../database');
+            RPG.getUser(jid); // pastikan user ada
+            RPG.addUnlockedAura(jid, auraId);
+            
+            await sock.sendMessage(m.chat, {
+                text: `✅ Berhasil memberikan Aura *${aura.name}* (${auraId}) kepada @${jid.split('@')[0]}!\n\n_User bisa memakai aura ini dengan .equipaura ${auraId}_`,
+                mentions: [jid]
+            }, { quoted: m.raw });
+        }
     }
 ];
