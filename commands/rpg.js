@@ -263,9 +263,11 @@ module.exports = [
             // Victory
             RPG.setLastKill(m.sender, { name: monster.name, power: monster.powerReq, attempts: 3 });
             
-            let reply = isCrit 
-                ? `🔥 *CRITICAL STRIKE!!!* ⚔️\nDengan kekuatan luar biasa, kamu berhasil menaklukkan *${monster.name}*!\n\n` 
-                : `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`;
+            let reply = userRpg.rpg_role === 'Anos Voldigoad'
+                ? `👑 *ANOS SANG RAJA IBLIS KEHANCURAN MEMBANTAI ${monster.name.toUpperCase()} SAMPAI KE AKAR MUASALNYA DENGAN MUDAH, DENGAN KEKUATAN EYE OF CHAOS DAN VENUZDONOA TIDAK ADA YANG ABADI DI DEPANNYA* 👑\n\n`
+                : (isCrit 
+                    ? `🔥 *CRITICAL STRIKE!!!* ⚔️\nDengan kekuatan luar biasa, kamu berhasil menaklukkan *${monster.name}*!\n\n` 
+                    : `🎉 Kamu berhasil mengalahkan *${monster.name}*!\n\n`);
             
             // Check drops with luck factor
             let dropChance = monster.dropChance * (1 + (stats.luck / 200)); // Every 200 luck doubles drop chance
@@ -1928,6 +1930,161 @@ module.exports = [
             } else {
                 await m.reply(`✅ Equipment yang sedang kamu pakai sudah yang terbaik!`);
             }
+        }
+    },
+    {
+        name: 'skillbook', aliases: ['bukuskill', 'panduanskill', 'roleinfo', 'roleskills'], category: 'rpg', desc: 'Melihat buku panduan skill dari setiap role RPG', usage: '[nama_role/all]',
+        async execute({ sock, m, args }) {
+            const roleInput = args.join(' ')?.toLowerCase().trim();
+
+            const rolesData = {
+                warrior: {
+                    name: '🗡️ Warrior Path (Warrior -> Fighter -> Gladiator)',
+                    evolution: 'Warrior (Mulai) ➔ Fighter (Lvl 50, Koin: 500.000) ➔ Gladiator (Lvl 100, Koin: 2.000.000)',
+                    stats: '• Warrior: +20% Power, -10% Luck\n• Fighter: +30% Power, -10% Luck\n• Gladiator: +40% Power, -10% Luck',
+                    skills: [
+                        { name: 'Vampiric (Lv. 10)', desc: 'Memulihkan +50 HP setiap kali memenangkan pertarungan biasa (.attack).' },
+                        { name: 'Berserk (Lv. 20)', desc: 'Peluang 20% meningkatkan multiplier damage sebesar +1.5 (+150% damage) dalam .attack dan .raid.' },
+                        { name: 'Giant Slayer (Lv. 30)', desc: 'Meningkatkan damage sebesar +30% saat melawan monster ber-power > 1.000.000 dalam .attack (Selalu aktif saat .raid).' },
+                        { name: 'War Cry (Lv. 40)', desc: 'Meningkatkan RPG EXP sebesar +20% dalam .attack dan mengurangi peluang skill khusus bos raid sebesar -5%.' },
+                        { name: 'Heavy Strike (Lv. 50)', desc: 'Meningkatkan multiplier damage secara permanen sebesar +15% dalam .attack dan .raid.' }
+                    ]
+                },
+                tank: {
+                    name: '🛡️ Tank Path (Tank -> Paladin -> Guardian)',
+                    evolution: 'Tank (Mulai) ➔ Paladin (Lvl 50, Koin: 500.000) ➔ Guardian (Lvl 100, Koin: 2.000.000)',
+                    stats: '• Tank: +30% Defense, -10% Power\n• Paladin: +40% Defense, -10% Power\n• Guardian: +50% Defense, -10% Power',
+                    skills: [
+                        { name: 'Iron Skin (Lv. 10)', desc: 'Mengurangi power monster sebesar 30% dalam .attack (mempermudah menang).' },
+                        { name: 'Guardian (Lv. 20)', desc: 'Mengurangi damage serangan balik bos sebesar 40% saat .raid.' },
+                        { name: 'Reflect (Lv. 30)', desc: 'Memantulkan 20% damage serangan balik bos kembali ke bos saat .raid.' },
+                        { name: 'Taunt (Lv. 40)', desc: 'Meningkatkan perolehan Koin RPG sebesar +50% dalam .attack.' },
+                        { name: 'Holy Shield (Lv. 50)', desc: 'Peluang 15% untuk memblokir sepenuhnya damage serangan balik bos saat .raid.' }
+                    ]
+                },
+                assassin: {
+                    name: '🥷 Assassin Path (Assassin -> Ninja -> Shadowblade)',
+                    evolution: 'Assassin (Mulai) ➔ Ninja (Lvl 50, Koin: 500.000) ➔ Shadowblade (Lvl 100, Koin: 2.000.000)',
+                    stats: '• Assassin: +30% Luck, +10% Power, -20% Defense\n• Ninja: +40% Luck, +20% Power, -30% Defense\n• Shadowblade: +50% Luck, +30% Power, -40% Defense',
+                    skills: [
+                        { name: 'Assassin Eye (Lv. 10)', desc: 'Meningkatkan peluang Critical Strike sebesar +15% saat .attack dan .raid.' },
+                        { name: 'Lethal Strike (Lv. 20)', desc: 'Meningkatkan multiplier damage Critical Strike dari 1.5x menjadi 3.0x saat .attack dan 2.0x menjadi 3.0x saat .raid.' },
+                        { name: 'Shadow Step (Lv. 30)', desc: 'Peluang 20% untuk otomatis kabur tanpa terluka jika kalah bertarung dalam .attack.' },
+                        { name: 'Poison Blade (Lv. 40)', desc: 'Meningkatkan damage secara permanen sebesar +10% dalam .attack dan .raid.' },
+                        { name: 'Smoke Bomb (Lv. 50)', desc: 'Menurunkan peluang bos raid menggunakan skill khusus menjadi 0% (selalu terblokir) saat .raid.' }
+                    ]
+                },
+                mage: {
+                    name: '🧙 Mage Path (Mage -> Warlock -> Archmage)',
+                    evolution: 'Mage (Mulai) ➔ Warlock (Lvl 50, Koin: 500.000) ➔ Archmage (Lvl 100, Koin: 2.000.000)',
+                    stats: '• Mage: +15% Power, +15% Luck, -20% Defense\n• Warlock: +25% Power, +25% Luck, -30% Defense\n• Archmage: +35% Power, +35% Luck, -40% Defense',
+                    skills: [
+                        { name: 'Dragon Slayer (Lv. 10)', desc: 'Meningkatkan damage sebesar +20% melawan monster tipe naga atau ber-power > 1.000.000 dalam .attack (Selalu aktif saat .raid).' },
+                        { name: 'Mana Shield (Lv. 20)', desc: 'Menyerap 25% damage serangan balik bos raid dan memulihkan HP sebesar setengah dari damage yang diserap.' },
+                        { name: 'Elemental Burst (Lv. 30)', desc: 'Peluang 25% memberikan tambahan damage sebesar +100% (+1.0x damage mult) saat .raid.' },
+                        { name: 'Meteor (Lv. 40)', desc: 'Meningkatkan damage secara permanen sebesar +25% dalam .attack dan .raid.' },
+                        { name: 'Time Warp (Lv. 50)', desc: 'Peluang 30% untuk bebas cooldown bertarung dalam .attack dan mengurangi durasi stun bos raid sebesar 50%.' }
+                    ]
+                },
+                necromancer: {
+                    name: '💀 Necromancer Path (Necromancer -> Shadow Monarch)',
+                    evolution: 'Necromancer (Mulai) ➔ Shadow Monarch (Lvl 100, Koin: 5.000.000)',
+                    stats: '• Necromancer: +50% Power, +50% Luck\n• Shadow Monarch: +150% Power, +150% Luck, +50% Defense',
+                    skills: [
+                        { name: 'Arise (Lv. 10)', desc: 'Membangkitkan monster atau bos terakhir yang dikalahkan menjadi Shadow (.arise).' },
+                        { name: 'Soul Reap (Lv. 20)', desc: 'Meningkatkan perolehan RPG EXP & Koin RPG sebesar +30% saat .attack.' },
+                        { name: 'Shadow Extraction (Lv. 30)', desc: 'Meningkatkan peluang ekstraksi shadow menjadi 90% (dari 60%) dan memberikan 5x percobaan (dari 3x).' },
+                        { name: 'Legion Commander (Lv. 40)', desc: 'Menggandakan (2x) total power seluruh pasukan Shadow saat bertarung (.attack & .raid).' },
+                        { name: 'Death Aura (Lv. 50)', desc: 'Mengurangi power musuh sebesar 15% saat bertarung (.attack).' }
+                    ]
+                },
+                anos: {
+                    name: '👑 King of Destruction Path (King of Destruction -> Anos Voldigoad) [Owner Only]',
+                    evolution: 'King of Destruction (Mulai) ➔ Anos Voldigoad (Lvl 100, Koin: 5.000.000)',
+                    stats: '• King of Destruction: Extreme Power, -50% Defense\n• Anos Voldigoad: God-Tier Stats',
+                    skills: [
+                        { name: 'Chaotic Eyes (Eye of Chaos)', desc: 'Mengurangi power musuh sebesar 90% (musuh hanya tersisa 10% power) saat .attack.' },
+                        { name: 'Venuzdonoa', desc: 'Meningkatkan damage secara masif sebesar +1000% (+10.0x damage mult) saat .attack & .raid.' },
+                        { name: 'Egil Grone Angdroa', desc: 'Meningkatkan perolehan RPG EXP & Koin RPG sebesar +500% (5.0x) saat .attack.' }
+                    ]
+                },
+                rimuru: {
+                    name: '💧 Slime Path (Slime -> Rimuru Tempest) [Owner Only]',
+                    evolution: 'Slime (Mulai) ➔ Rimuru Tempest (Lvl 100, Koin: 5.000.000)',
+                    stats: '• Slime: Extreme Luck, Balanced Stats\n• Rimuru Tempest: God-Tier Stats',
+                    skills: [
+                        { name: 'Predator', desc: 'Melipatgandakan peluang drop item sebesar 3x lipat (3.0x drop chance) saat .attack.' },
+                        { name: 'Beelzebuth', desc: 'Memulihkan HP sepenuhnya (100% Max HP) setelah memenangkan pertarungan biasa (.attack).' },
+                        { name: 'Azathoth', desc: 'Meningkatkan damage secara masif sebesar +500% (+5.0x damage mult) saat .attack & .raid.' },
+                        { name: 'Universal Shapeshift', desc: 'Menjamin kelolosan 100% tanpa terluka jika power Anda tidak cukup untuk mengalahkan musuh dalam .attack.' }
+                    ]
+                }
+            };
+
+            // Aliases for sub-roles to map to correct key
+            const roleAliases = {
+                'warrior': 'warrior', 'fighter': 'warrior', 'gladiator': 'warrior',
+                'tank': 'tank', 'paladin': 'tank', 'guardian': 'tank',
+                'assassin': 'assassin', 'ninja': 'assassin', 'shadowblade': 'assassin',
+                'mage': 'mage', 'warlock': 'mage', 'archmage': 'mage',
+                'necromancer': 'necromancer', 'necro': 'necromancer', 'shadow monarch': 'necromancer', 'monarch': 'necromancer',
+                'king of destruction': 'anos', 'anos voldigoad': 'anos', 'anos': 'anos',
+                'slime': 'rimuru', 'rimuru': 'rimuru', 'rimuru tempest': 'rimuru'
+            };
+
+            const buildRoleText = (roleKey) => {
+                const data = rolesData[roleKey];
+                let text = `╔══ 🎉 *${data.name.toUpperCase()}* ══╗\n`;
+                text += `│\n`;
+                text += `├─ 📈 *Evolusi:* ${data.evolution}\n`;
+                text += `├─ 📊 *Stat Modifiers:*\n${data.stats.split('\n').map(line => '│   ' + line).join('\n')}\n`;
+                text += `│\n`;
+                text += `├─ 🔮 *Unique Skills:*\n`;
+                data.skills.forEach(skill => {
+                    text += `│   🔸 *${skill.name}*\n`;
+                    text += `│      └ _${skill.desc}_\n`;
+                });
+                text += `│\n`;
+                text += `╚════════════════════════╝`;
+                return text;
+            };
+
+            if (roleInput === 'all') {
+                let text = `📖 *BUKU PANDUAN LENGKAP SKILL ROLE RPG* 📖\n\n`;
+                text += `Berikut adalah daftar seluruh skill dan keunikan dari setiap role yang ada. Gunakan tombol Read More untuk membaca detail lengkapnya.\n`;
+                text += `\n_Ketik .skillbook <nama_role> untuk melihat spesifik role saja._\n\n`;
+                
+                // Read More divider
+                const readMore = String.fromCharCode(8206).repeat(4001);
+                text += readMore + '\n';
+
+                const keys = Object.keys(rolesData);
+                text += keys.map(k => buildRoleText(k)).join('\n\n');
+                
+                return m.reply(text);
+            }
+
+            const matchedKey = roleAliases[roleInput];
+            if (matchedKey && rolesData[matchedKey]) {
+                return m.reply(buildRoleText(matchedKey));
+            }
+
+            // Default directory menu
+            let menu = `╭───「 📖 *RPG SKILL BOOK* 」───╮\n│\n`;
+            menu += `│ Ketahui keunikan, statistik, dan unique skill\n`;
+            menu += `│ dari setiap role RPG untuk menyusun strategi terbaik!\n│\n`;
+            menu += `│ *Daftar Role Trees:*\n`;
+            menu += `│ 🗡️ *Warrior Path* (.skillbook warrior)\n`;
+            menu += `│ 🛡️ *Tank Path* (.skillbook tank)\n`;
+            menu += `│ 🥷 *Assassin Path* (.skillbook assassin)\n`;
+            menu += `│ 🧙 *Mage Path* (.skillbook mage)\n`;
+            menu += `│ 💀 *Necromancer Path* (.skillbook necro)\n`;
+            menu += `│ 👑 *Owner Paths* (.skillbook anos / slime)\n│\n`;
+            menu += `│ 🔗 *Tampilkan Semua:* .skillbook all\n│\n`;
+            menu += `╰─── _Ketik .skillbook <nama_role>_ ───╯\n\n`;
+            menu += `💡 _Info: Ganti role dikenakan biaya 🪙 50.000 Koin RPG (Gratis untuk Beginner) menggunakan perintah .setrole._`;
+            
+            await m.reply(menu);
         }
     }
 ];
