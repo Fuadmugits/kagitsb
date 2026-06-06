@@ -11,15 +11,62 @@ if (!fs.existsSync(config.paths.sessions)) fs.mkdirSync(config.paths.sessions, {
 
 let db = null;
 
-function saveDb() {
+// Keep track of save state
+let isSaving = false;
+let pendingSave = false;
+let saveTimeout = null;
+
+// Asynchronous save to avoid blocking the event loop
+async function saveDb() {
     if (!db) return;
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(config.paths.database, buffer);
+    if (isSaving) {
+        pendingSave = true;
+        return;
+    }
+    isSaving = true;
+    try {
+        const data = db.export();
+        const buffer = Buffer.from(data);
+        await fs.promises.writeFile(config.paths.database, buffer);
+    } catch (e) {
+        console.error('❌ DB Save Error:', e.message);
+    } finally {
+        isSaving = false;
+        if (pendingSave) {
+            pendingSave = false;
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveDb, 1000);
+        }
+    }
 }
 
-// Auto-save every 30 seconds
+// Synchronous save function specifically for process exit / graceful shutdown
+function saveDbSync() {
+    if (!db) return;
+    try {
+        const data = db.export();
+        const buffer = Buffer.from(data);
+        fs.writeFileSync(config.paths.database, buffer);
+        console.log('💾 Database saved successfully (sync).');
+    } catch (e) {
+        console.error('❌ DB Save Sync Error:', e.message);
+    }
+}
+
+// Queue save (throttled write to avoid disk thrashing)
+function queueSaveDb() {
+    if (saveTimeout) return;
+    saveTimeout = setTimeout(async () => {
+        saveTimeout = null;
+        await saveDb();
+    }, 2000); // Throttled/debounced to save at most once every 2 seconds
+}
+
+// Auto-save every 30 seconds (non-blocking)
 setInterval(saveDb, 30000);
+
+// Process exit hook to ensure data is persistent
+process.on('exit', saveDbSync);
 
 async function initDatabase() {
     const SQL = await initSqlJs();
@@ -211,7 +258,7 @@ async function initDatabase() {
         amount INTEGER DEFAULT 1
     )`);
 
-    saveDb();
+    saveDbSync();
     console.log('✅ Database initialized');
     return db;
 }
@@ -243,7 +290,7 @@ function queryOne(sql, params = []) {
 }
 
 function run(sql, params = []) {
-    try { db.run(sql, params); saveDb(); } catch (e) { console.error('DB Error:', e.message); }
+    try { db.run(sql, params); queueSaveDb(); } catch (e) { console.error('DB Error:', e.message); }
 }
 
 // ═══════════════════════════════════════
@@ -627,7 +674,7 @@ const Achievements = {
     grant(jid, badgeKey) {
         try {
             db.run('INSERT OR IGNORE INTO achievements (jid, badge_key) VALUES (?, ?)', [jid, badgeKey]);
-            saveDb();
+            queueSaveDb();
             // Check if insert happened (changes > 0)
             const changes = db.exec('SELECT changes() as c')?.[0]?.values?.[0]?.[0];
             return changes > 0;
